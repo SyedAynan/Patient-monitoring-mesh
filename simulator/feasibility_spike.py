@@ -180,7 +180,7 @@ def run_spike() -> dict[str, object]:
         for node in nodes:
             packet, frame = build_sample(node.device_id, node.patient_id, step)
             emitted[(node.device_id, step)] = packet
-            if not send(link, receiver, stats, frame):
+            if not send(link, receiver, stats, (node.device_id, step), frame):
                 node.enqueue(step, frame)
 
     # Reconnect: every node flushes its buffer once the link recovers.
@@ -188,12 +188,19 @@ def run_spike() -> dict[str, object]:
     for node in nodes:
         buffered = list(node.buffer)
         node.buffer.clear()
-        for _, sequence_number, frame in buffered:
-            if not send(link, receiver, stats, frame):
-                node.enqueue(sequence_number, frame)
+        for _, sequence_number, buffered_frame in buffered:
+            if not send(
+                link,
+                receiver,
+                stats,
+                (node.device_id, sequence_number),
+                buffered_frame,
+            ):
+                node.enqueue(sequence_number, buffered_frame)
 
     return {
-        "emitted": len(emitted),
+        "emitted_count": len(emitted),
+        "emitted_samples": emitted,
         "acked": stats.acked,
         "unique_records": len(receiver.received),
         "retransmissions": stats.retransmissions,
@@ -209,7 +216,6 @@ def run_spike() -> dict[str, object]:
         "buffer_high_water": max(n.high_water for n in nodes),
         "buffer_refusals": sum(n.refusals for n in nodes),
         "encoded_bytes": len(encode_packet(emitted[("node-01", 1)])),
-        "emitted": emitted,
         "receiver": receiver,
     }
 
@@ -217,7 +223,7 @@ def run_spike() -> dict[str, object]:
 def check_records_are_faithful(result: dict[str, object]) -> tuple[bool, str]:
     """Every stored record must equal the sample the node actually emitted."""
     receiver = result["receiver"]
-    emitted = result["emitted"]
+    emitted = result["emitted_samples"]
     assert isinstance(receiver, Receiver) and isinstance(emitted, dict)
     for key, stored in receiver.received.items():
         if emitted.get(key) != stored:
@@ -227,7 +233,7 @@ def check_records_are_faithful(result: dict[str, object]) -> tuple[bool, str]:
 
 def main() -> int:
     result = run_spike()
-    emitted = result["emitted"]
+    emitted = result["emitted_samples"]
     assert isinstance(emitted, dict)
 
     retry_keys = result["retry_keys"]
@@ -237,9 +243,9 @@ def main() -> int:
     checks = [
         (
             "every emitted sample encodes and decodes through the link",
-            result["unique_records"] + len(unique_retry_keys) > 0
-            and all(len(decode_packet(encode_packet(p))) > 0 for p in emitted.values()),
-            "",
+            result["unique_records"] == len(emitted)
+            and all(decode_packet(encode_packet(p)) == p for p in emitted.values()),
+            f"emitted={len(emitted)} unique_records={result['unique_records']}",
         ),
         (
             "a retry reuses the same (device_id, sequence_number)",
@@ -272,7 +278,7 @@ def main() -> int:
     print("Phase 1 feasibility spike (simulated link, not an evaluation metric)")
     print(f"seed={SEED} samples_per_node={SAMPLES_PER_NODE} nodes={len(NODES)}")
     print(f"encoded packet size: {result['encoded_bytes']} bytes")
-    print(f"emitted={result['emitted']} acked={result['acked']} "
+    print(f"emitted={result['emitted_count']} acked={result['acked']} "
           f"unique_records={result['unique_records']}")
     print(f"retransmissions={result['retransmissions']} "
           f"duplicates_suppressed={result['duplicates_suppressed']} "
