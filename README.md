@@ -3,7 +3,7 @@
 # Resilient Edge-Intelligence Patient Monitoring Mesh
 **Academic major project — MedTech + IoT + Computer Networking**
 
-![Patient Monitoring Mesh Hero](./assets/hero%201.jpg)
+![Patient Monitoring Mesh Hero](./assets/hero_1.jpg)
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
