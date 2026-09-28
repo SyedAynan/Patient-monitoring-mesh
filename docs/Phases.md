@@ -5,9 +5,10 @@
 
 ## Phase tracking
 
-- **Completed phases:** None
+- **Completed phases:** Phase 1 contract foundation subtask — packet schema, validator, demo, and tests
 - **CURRENT PHASE:** Phase 1 — Project foundation and feasibility spike
 - **NEXT PHASE:** Phase 2 — Single-node sensing and simulator contract
+- **Phase 1 remaining gate:** physical two-node transport feasibility spike
 
 Each phase must be completed, tested, and documented before the next begins. Do not implement the next phase automatically.
 

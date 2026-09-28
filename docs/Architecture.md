@@ -32,7 +32,7 @@ A node may raise a local alarm even when the gateway is unavailable. The gateway
 
 ## 3. Technology direction
 
-Final choices remain **[TBD]** and must be confirmed through a small hardware spike in Phase 1.
+Phase 1 decisions are Python/FastAPI backend, React + TypeScript dashboard, SQLite-first storage, six target nodes, and an ESP-NOW-style local transport spike with an application-level relay layer. The hardware spike must still confirm the final radio implementation.
 
 ### Embedded nodes
 - **Candidate:** ESP32 with PlatformIO (Arduino-compatible C++).
@@ -55,9 +55,9 @@ Final choices remain **[TBD]** and must be confirmed through a small hardware sp
 - **HTTP:** administration, history, experiments, health endpoints.
 
 ### Database
-- **Candidate:** PostgreSQL with a time-series-friendly schema; SQLite acceptable for the first local prototype.
-- **Why:** durable relational metadata, constraints, queryability, clear upgrade path.
-- **Alternative:** InfluxDB if measurement analytics dominate and relational metadata stays separate.
+- **Phase 1 choice:** SQLite with a time-series-friendly schema.
+- **Why:** zero-service local setup and fast contract/integration testing.
+- **Migration path:** PostgreSQL for the production-like demo; InfluxDB remains an alternative only if measurement analytics later justify the added service.
 
 ### Frontend
 - **Candidate:** React + TypeScript with a minimal component system and WebSocket/SSE updates.
@@ -109,7 +109,7 @@ Minimum tables:
 - `alerts`
 - `network_events`
 - `experiment_sessions`
-- `users` (only if authentication is enabled)
+- `users` (Phase 7 only, if authentication is enabled)
 
 Use UTC timestamps, immutable measurement records, a unique constraint on `(device_id, sequence_number)`, indexes on device/time, and migrations for every schema change.
 

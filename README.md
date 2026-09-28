@@ -7,12 +7,22 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Phase-1%20Foundation-blue.svg)](#current-status)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](#)
+[![Phase](https://img.shields.io/badge/Phase-1%20Foundation-blue.svg)](#-current-status)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
 
 > **⚠️ Disclaimer:** This is an educational/research prototype. It is not a certified medical device and does not replace clinical judgment.
+
+## 📑 Table of Contents
+- [🌟 Core Features](#-core-features)
+- [📚 Documentation](#-documentation)
+- [🚀 Current Status](#-current-status)
+- [🛠️ Setup & Development](#️-setup--development)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
 ## 🌟 Core Features
 
@@ -48,3 +58,13 @@ python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
 The physical ESP32/PlatformIO setup begins after the two-node transport spike is approved.
+
+## 🤝 Contributing
+
+Contributions make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started, and our [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community rules.
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
