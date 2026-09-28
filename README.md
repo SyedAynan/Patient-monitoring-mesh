@@ -3,7 +3,7 @@
 # Resilient Edge-Intelligence Patient Monitoring Mesh
 **Academic major project — MedTech + IoT + Computer Networking**
 
-![Patient Monitoring Mesh Hero](./assets/hero.jpg)
+![Patient Monitoring Mesh Hero](./assets/hero%201.jpg)
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
@@ -38,6 +38,13 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 ### Phase 1 — Project Foundation and Feasibility Spike
 We are currently in the process of confirming technology directions, creating the repository foundation, and proving that the hardware/protocol can produce reliable sample packets.
 
-## 🛠️ Setup & Development (WIP)
+## 🛠️ Setup & Development
 
-*Local development and setup instructions will be updated here as the project progresses through Phase 1.*
+Phase 1 currently uses only the Python standard library:
+
+```bash
+python tools/packet_demo.py
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+The physical ESP32/PlatformIO setup begins after the two-node transport spike is approved.
