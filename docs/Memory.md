@@ -5,15 +5,16 @@
 
 ## Completed
 
-- Workspace confirmed empty before foundation work.
-- Foundation docs created: PRD, Architecture, Rules, Phases, Design.
-- Decisions selected: six target nodes; ESP-NOW-style local transport spike; Python backend direction; SQLite first; React + TypeScript later; lab-only dashboard mode initially; ECG deferred; dashboard alerts first.
+- Existing git-backed documentation baseline was preserved after the workspace changed during setup.
+- Foundation docs are present: PRD, Architecture, Rules, Phases, Design.
+- Decisions selected: six target nodes; ESP-NOW-style local transport spike; Python/FastAPI backend; SQLite first; React + TypeScript later; lab-only dashboard mode initially; ECG deferred; dashboard alerts first.
 
 ## Current implementation
 
 - Versioned `TelemetryPacketV1` contract in `shared/protocol/`.
-- Standard-library validator, deterministic JSON encoder/decoder.
-- Demo script and unit tests.
+- Standard-library validator, deterministic JSON encoder/decoder, packet builder.
+- Demo script and 14 unit tests; all pass.
+- `.gitignore` and `.env.example` added without secrets.
 
 ## Important decisions
 
@@ -25,9 +26,10 @@
 ## Known issues / TBD
 
 - Physical ESP32/PlatformIO toolchain is not installed in this workspace.
-- Final radio/mesh protocol needs hardware feasibility testing.
+- Final radio/mesh implementation needs hardware feasibility testing.
 - Packet authentication/encryption is deferred to the security phase.
+- Existing untracked `assets/hardware.png` was not modified.
 
 ## Next task
 
-Run the packet contract tests, then decide whether to install PlatformIO and begin the two-node transport spike.
+Acquire/confirm two ESP32 boards and begin the two-node transport spike; keep the simulator as the fallback until PlatformIO is available.

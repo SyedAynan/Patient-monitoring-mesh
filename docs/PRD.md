@@ -92,12 +92,12 @@ These are not part of the initial MVP unless explicitly promoted into the curren
 
 ## 8. Functional requirements
 
-- FR-01: Support at least **[TBD: target node count]** simultaneously identifiable nodes.
+- FR-01: Support at least 6 simultaneously identifiable nodes.
 - FR-02: Attach timestamp, node ID, sequence number, signal quality, and priority to telemetry packets.
 - FR-03: Detect stale or disconnected nodes within a configurable timeout.
 - FR-04: Deliver critical packets with higher delivery priority than routine telemetry.
 - FR-05: Prevent duplicate records during retries and synchronization.
-- FR-06: Preserve buffered telemetry across temporary network loss for at least **[TBD: duration]**.
+- FR-06: Preserve buffered telemetry across temporary network loss for at least 5 minutes in the lab prototype.
 - FR-07: Show current and historical readings for each simulated patient.
 - FR-08: Record network performance metrics for experiments.
 - FR-09: Provide a safe demo/test mode using synthetic or non-clinical data.
@@ -106,8 +106,8 @@ These are not part of the initial MVP unless explicitly promoted into the curren
 
 ## 9. Non-functional requirements
 
-- NFR-01: Dashboard updates should target **[TBD: latency target]** under normal lab conditions.
-- NFR-02: Critical alert delivery target: **[TBD: target]** seconds on a healthy local network.
+- NFR-01: Dashboard updates should target 2 seconds or less under normal lab conditions.
+- NFR-02: Critical alert delivery target: 3 seconds or less on a healthy local network.
 - NFR-03: The system must remain usable when one relay node is unavailable.
 - NFR-04: Every stored measurement must be traceable to node, timestamp, and sequence number.
 - NFR-05: Services must expose health checks and structured logs.
@@ -130,8 +130,8 @@ Retention policy, database engine, and export format are **[TBD]**.
 ## 11. Authentication and authorization
 
 - MVP device authentication: provisioned device credentials or pre-shared identity.
-- MVP dashboard authentication: **[TBD: local demo login vs. no-login lab mode]**.
-- Authorization roles (operator, viewer, administrator) are **[TBD]**.
+- MVP dashboard authentication: lab-only mode without public access; full login is deferred.
+- Authorization roles are deferred until Phase 7.
 - No real patient identity or clinical account integration in MVP.
 
 ## 12. Constraints
@@ -182,11 +182,11 @@ Retention policy, database engine, and export format are **[TBD]**.
 
 ## 16. Open decisions
 
-- [TBD] Final node count and hardware bill of materials.
-- [TBD] ESP-NOW relay design versus Wi-Fi/Thread/802.15.4 mesh.
-- [TBD] Backend language and framework.
-- [TBD] Time-series database choice.
-- [TBD] Dashboard framework.
-- [TBD] Authentication depth for the local demo.
-- [TBD] Alerting channel.
-- [TBD] ECG inclusion and dataset/model approach.
+- Hardware bill of materials will be finalized after the Phase 1 hardware spike.
+- Local transport spike: ESP-NOW-style application relay; compare against Wi-Fi/Thread/802.15.4 only if the spike fails.
+- Backend: Python FastAPI.
+- First storage: SQLite; PostgreSQL remains the production-like migration path.
+- Dashboard: React + TypeScript.
+- Authentication: lab-only mode in MVP; full dashboard auth is Phase 7.
+- Alerting: dashboard alerts in MVP; Telegram/SMS is future work.
+- ECG and arrhythmia ML are deferred until the core sensing/networking pipeline is reliable.
