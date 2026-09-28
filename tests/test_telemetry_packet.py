@@ -6,6 +6,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from importlib.util import module_from_spec, spec_from_file_location
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -16,6 +17,22 @@ from shared.protocol import (  # noqa: E402
     make_packet,
     validate_packet,
 )
+
+
+def load_spike_module():
+    """Import the Phase 1 feasibility spike by path; `simulator/` is not a package."""
+    path = Path(__file__).resolve().parents[1] / "simulator" / "feasibility_spike.py"
+    spec = spec_from_file_location("feasibility_spike", path)
+    assert spec and spec.loader
+    module = module_from_spec(spec)
+    # dataclasses resolves annotations through sys.modules, so register first.
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        del sys.modules[spec.name]
+        raise
+    return module
 
 
 def base_packet() -> dict:
@@ -107,6 +124,69 @@ class TelemetryPacketTests(unittest.TestCase):
     def test_non_utf8_bytes_are_rejected(self) -> None:
         with self.assertRaises(PacketValidationError):
             decode_packet(b"\xff\xfe\x00")
+
+
+class FeasibilitySpikeTests(unittest.TestCase):
+    """Regressions for the Phase 1 stand-in spike (see simulator/README.md).
+
+    These assert the reliability rules, not performance: the simulated link runs
+    on one clock and proves nothing about radio behaviour.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.spike = load_spike_module()
+        cls.result = cls.spike.run_spike()
+
+    def test_spike_is_deterministic(self) -> None:
+        self.assertEqual(self.spike.run_spike(), self.result)
+
+    def test_every_emitted_sample_is_delivered_exactly_once(self) -> None:
+        result = self.result
+        self.assertEqual(result["unique_records"], result["emitted_count"])
+        self.assertEqual(result["acked"], result["emitted_count"])
+        self.assertEqual(result["buffered_remaining"], 0)
+
+    def test_retries_reuse_the_same_sequence_number(self) -> None:
+        """A retried frame must decode back to the same key, not a new sample."""
+        _, frame = self.spike.build_sample("node-01", "patient-01", 7)
+        first = self.spike.decode_packet(frame)
+        retried = self.spike.decode_packet(frame)
+        self.assertEqual(
+            (first["device_id"], first["sequence_number"]),
+            (retried["device_id"], retried["sequence_number"]),
+        )
+        self.assertEqual(first, retried)
+        # The spike actually exercised retries, so the rule was applied to real traffic.
+        retry_keys = self.result["retry_keys"]
+        self.assertGreater(len(retry_keys), 0)
+        self.assertTrue(set(retry_keys).issubset(set(self.result["emitted_samples"])))
+
+    def test_retries_never_produce_duplicate_records(self) -> None:
+        receiver = self.spike.Receiver()
+        packet, frame = self.spike.build_sample("node-01", "patient-01", 1)
+        self.assertTrue(receiver.deliver(frame))
+        self.assertFalse(receiver.deliver(frame))
+        self.assertEqual(receiver.duplicates_suppressed, 1)
+        self.assertEqual(receiver.received, {("node-01", 1): packet})
+
+    def test_stored_records_match_the_emitted_samples(self) -> None:
+        passed, detail = self.spike.check_records_are_faithful(self.result)
+        self.assertTrue(passed, detail)
+
+    def test_corrupted_frames_are_rejected_safely(self) -> None:
+        receiver = self.spike.Receiver()
+        self.assertFalse(receiver.deliver(b"\xff\xfe{}"))
+        self.assertEqual(receiver.rejected, 1)
+        self.assertEqual(receiver.received, {})
+
+    def test_node_buffer_stays_within_its_bound(self) -> None:
+        node = self.spike.Node(device_id="node-01", patient_id="patient-01")
+        for sequence_number in range(1, self.spike.BUFFER_LIMIT + 6):
+            node.enqueue(sequence_number, b"frame")
+        self.assertEqual(len(node.buffer), self.spike.BUFFER_LIMIT)
+        self.assertEqual(node.high_water, self.spike.BUFFER_LIMIT)
+        self.assertEqual(node.refusals, 5)
 
 
 if __name__ == "__main__":
