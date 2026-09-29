@@ -56,6 +56,7 @@ Phase 1 currently uses only the Python standard library:
 
 ```bash
 python tools/packet_demo.py
+python tools/generate_fixtures.py
 python simulator/feasibility_spike.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
