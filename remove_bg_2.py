@@ -3,12 +3,13 @@ import os
 
 assets_dir = r"s:\stuff\assets"
 images = [
-    "sensing_icon.png",
-    "processing_icon.png",
-    "network_icon.png",
-    "gateway_icon.png",
-    "dashboard_icon.png",
-    "storage_icon.png"
+    "toc_icon.png",
+    "star_icon.png",
+    "books_icon.png",
+    "rocket_icon.png",
+    "tools_icon.png",
+    "handshake_icon.png",
+    "license_icon.png"
 ]
 
 def remove_white_bg(img_path, out_path, tolerance=240):
