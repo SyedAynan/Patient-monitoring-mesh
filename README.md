@@ -26,12 +26,12 @@
 
 ## 🌟 Core Features
 
-- 🩺 **Multi-node sensing:** ESP32-based nodes with vital sensing (heart rate/SpO2, temperature).
-- 🧠 **Local processing:** Filtering, signal-quality indicators, trend/risk scoring, and local critical-event detection.
-- 🕸️ **Resilient local networking:** Local multi-hop network with prioritized packets, acknowledgements, and retry handling.
-- 📡 **Gateway ingestion:** Gateway node forwarding normalized telemetry to the backend.
-- 📊 **Real-time dashboard:** Live patient cards, vital trends, risk state, and active alerts.
-- 💾 **Store-and-forward:** Nodes buffer data during temporary disconnections to guarantee delivery upon reconnection.
+- <img src="./assets/sensing_icon.png" width="24" align="center"> **Multi-node sensing:** ESP32-based nodes with vital sensing (heart rate/SpO2, temperature).
+- <img src="./assets/processing_icon.png" width="24" align="center"> **Local processing:** Filtering, signal-quality indicators, trend/risk scoring, and local critical-event detection.
+- <img src="./assets/network_icon.png" width="24" align="center"> **Resilient local networking:** Local multi-hop network with prioritized packets, acknowledgements, and retry handling.
+- <img src="./assets/gateway_icon.png" width="24" align="center"> **Gateway ingestion:** Gateway node forwarding normalized telemetry to the backend.
+- <img src="./assets/dashboard_icon.png" width="24" align="center"> **Real-time dashboard:** Live patient cards, vital trends, risk state, and active alerts.
+- <img src="./assets/storage_icon.png" width="24" align="center"> **Store-and-forward:** Nodes buffer data during temporary disconnections to guarantee delivery upon reconnection.
 
 ## 📚 Documentation
 
