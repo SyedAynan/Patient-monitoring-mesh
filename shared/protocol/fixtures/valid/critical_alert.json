@@ -1,0 +1,1 @@
+{"captured_at_ms":1798000003000,"device_id":"node-04","measurements":{"heart_rate_bpm":158,"spo2_percent":86,"temperature_c":38.9},"packet_type":"telemetry","patient_id":"patient-04","priority":"critical","risk":{"level":"critical","score":91},"schema_version":1,"sequence_number":4,"signal_quality":0.72}

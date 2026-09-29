@@ -1,0 +1,191 @@
+{
+  "contract": "TelemetryPacketV1",
+  "fixtures": [
+    {
+      "expect": "valid",
+      "file": "valid/routine_nominal.json",
+      "name": "routine_nominal"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/no_risk_block.json",
+      "name": "no_risk_block"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/attention_risk.json",
+      "name": "attention_risk"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/critical_alert.json",
+      "name": "critical_alert"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/degraded_signal_quality.json",
+      "name": "degraded_signal_quality"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/measurement_boundaries.json",
+      "name": "measurement_boundaries"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/fractional_values.json",
+      "name": "fractional_values"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/max_sequence_number.json",
+      "name": "max_sequence_number"
+    },
+    {
+      "expect": "valid",
+      "file": "valid/max_device_id_length.json",
+      "name": "max_device_id_length"
+    },
+    {
+      "error_code": "NOT_AN_OBJECT",
+      "expect": "invalid",
+      "file": "invalid/not_an_object.json",
+      "name": "not_an_object"
+    },
+    {
+      "error_code": "UNKNOWN_FIELD",
+      "expect": "invalid",
+      "file": "invalid/unknown_field.json",
+      "name": "unknown_field"
+    },
+    {
+      "error_code": "MISSING_REQUIRED_FIELD",
+      "expect": "invalid",
+      "file": "invalid/missing_required_field.json",
+      "name": "missing_required_field"
+    },
+    {
+      "error_code": "UNSUPPORTED_SCHEMA_VERSION",
+      "expect": "invalid",
+      "file": "invalid/unsupported_schema_version.json",
+      "name": "unsupported_schema_version"
+    },
+    {
+      "error_code": "INVALID_PACKET_TYPE",
+      "expect": "invalid",
+      "file": "invalid/invalid_packet_type.json",
+      "name": "invalid_packet_type"
+    },
+    {
+      "error_code": "INVALID_DEVICE_ID",
+      "expect": "invalid",
+      "file": "invalid/invalid_device_id.json",
+      "name": "invalid_device_id"
+    },
+    {
+      "error_code": "INVALID_PATIENT_ID",
+      "expect": "invalid",
+      "file": "invalid/invalid_patient_id.json",
+      "name": "invalid_patient_id"
+    },
+    {
+      "error_code": "INVALID_SEQUENCE_NUMBER",
+      "expect": "invalid",
+      "file": "invalid/negative_sequence_number.json",
+      "name": "negative_sequence_number"
+    },
+    {
+      "error_code": "INVALID_SEQUENCE_NUMBER",
+      "expect": "invalid",
+      "file": "invalid/fractional_sequence_number.json",
+      "name": "fractional_sequence_number"
+    },
+    {
+      "error_code": "SEQUENCE_NUMBER_OVERFLOW",
+      "expect": "invalid",
+      "file": "invalid/sequence_number_overflow.json",
+      "name": "sequence_number_overflow"
+    },
+    {
+      "error_code": "INVALID_TIMESTAMP",
+      "expect": "invalid",
+      "file": "invalid/negative_timestamp.json",
+      "name": "negative_timestamp"
+    },
+    {
+      "error_code": "INVALID_PRIORITY",
+      "expect": "invalid",
+      "file": "invalid/invalid_priority.json",
+      "name": "invalid_priority"
+    },
+    {
+      "error_code": "INVALID_SIGNAL_QUALITY",
+      "expect": "invalid",
+      "file": "invalid/signal_quality_above_range.json",
+      "name": "signal_quality_above_range"
+    },
+    {
+      "error_code": "INVALID_SIGNAL_QUALITY",
+      "expect": "invalid",
+      "file": "invalid/signal_quality_not_a_number.json",
+      "name": "signal_quality_not_a_number"
+    },
+    {
+      "error_code": "INVALID_MEASUREMENTS",
+      "expect": "invalid",
+      "file": "invalid/measurements_not_object.json",
+      "name": "measurements_not_object"
+    },
+    {
+      "error_code": "INVALID_MEASUREMENTS",
+      "expect": "invalid",
+      "file": "invalid/measurement_missing_field.json",
+      "name": "measurement_missing_field"
+    },
+    {
+      "error_code": "INVALID_MEASUREMENT",
+      "expect": "invalid",
+      "file": "invalid/measurement_out_of_range.json",
+      "name": "measurement_out_of_range"
+    },
+    {
+      "error_code": "INVALID_MEASUREMENT",
+      "expect": "invalid",
+      "file": "invalid/boolean_measurement.json",
+      "name": "boolean_measurement"
+    },
+    {
+      "error_code": "INVALID_RISK_LEVEL",
+      "expect": "invalid",
+      "file": "invalid/risk_invalid_level.json",
+      "name": "risk_invalid_level"
+    },
+    {
+      "error_code": "INVALID_RISK_SCORE",
+      "expect": "invalid",
+      "file": "invalid/risk_score_out_of_range.json",
+      "name": "risk_score_out_of_range"
+    },
+    {
+      "error_code": "INVALID_RISK",
+      "expect": "invalid",
+      "file": "invalid/risk_missing_score.json",
+      "name": "risk_missing_score"
+    },
+    {
+      "error_code": "NOT_VALID_JSON",
+      "expect": "invalid",
+      "file": "invalid/not_valid_json.json",
+      "name": "not_valid_json"
+    },
+    {
+      "error_code": "NOT_VALID_JSON",
+      "expect": "invalid",
+      "file": "invalid/not_utf8.json",
+      "name": "not_utf8"
+    }
+  ],
+  "note": "Generated by tools/generate_fixtures.py. Valid fixtures are canonical bytes: decode then re-encode must reproduce the file exactly. Invalid fixtures must be rejected with the listed error_code and must never crash.",
+  "schema": "../telemetry_packet.schema.json",
+  "schema_version": 1
+}
