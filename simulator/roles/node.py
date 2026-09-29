@@ -20,8 +20,13 @@ from dataclasses import dataclass, field
 
 from shared.protocol import PacketValidationError, make_packet
 
-from ..sensing.processing import FilterOutcome, SignalFilter, validate_against_contract
-from ..sensing.sources import SensorUnavailable, VitalSource, is_plausible
+from ..sensing.processing import (
+    FilterOutcome,
+    SignalFilter,
+    is_plausible,
+    validate_against_contract,
+)
+from ..sensing.sources import SensorUnavailable, VitalSource
 from ..transport import Frame, LinkUnavailable, Transport
 
 

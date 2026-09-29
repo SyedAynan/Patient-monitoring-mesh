@@ -170,6 +170,20 @@ class SimulatedMedium:
     def inbox_depth(self, endpoint_id: EndpointId) -> int:
         return len(self._inboxes.get(endpoint_id, ()))
 
+    def peek(self, endpoint_id: EndpointId) -> list[bytes]:
+        """Inspect an inbox without clearing it, as a receiver would see it."""
+        return list(self._inboxes.get(endpoint_id, ()))
+
+    def inject_raw(self, endpoint_id: EndpointId, raw: bytes) -> None:
+        """Place raw bytes directly in an endpoint's inbox.
+
+        A fault-injection and test hook. A real radio can be handed bytes that
+        were never well-formed — interference, or another sender entirely — so
+        receivers must cope with input that did not come from a `Frame`. This
+        mirrors that without pretending a `Frame` produced it.
+        """
+        self._deliver(endpoint_id, raw)
+
     def drain(self, endpoint_id: EndpointId) -> list[bytes]:
         self._flush_deferred(endpoint_id)
         inbox = self._inboxes[endpoint_id]

@@ -33,7 +33,13 @@ UNSTABLE_SIGNAL = "UNSTABLE_SIGNAL"
 UNKNOWN = "UNKNOWN"
 
 MINIMUM_SIGNAL_QUALITY = 0.25
-_MAX_SIGNAL_QUALITY_NOISE = 8.0
+
+# Dispersion (in bpm, mean absolute deviation of the window) that maps to zero
+# quality. A steady adult at rest varies by a few bpm sample to sample, so this
+# is set where normal sensor noise still reports a clearly usable signal, while
+# visible instability approaches the minimum-quality gate. It is a tuning
+# constant, not a clinical threshold: nothing here diagnoses anything.
+MAX_SIGNAL_DISPERSION_BPM = 12.0
 
 
 @dataclass(frozen=True)
@@ -121,7 +127,7 @@ class SignalFilter:
         if not self._heart_rate:
             return 0.0
         dispersion = self._dispersion()
-        quality = 1.0 - (dispersion / _MAX_SIGNAL_QUALITY_NOISE)
+        quality = 1.0 - (dispersion / MAX_SIGNAL_DISPERSION_BPM)
         return max(0.0, min(1.0, quality))
 
     def result(self) -> FilterOutcome:
