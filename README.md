@@ -41,6 +41,8 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 - 🏗️ **[Architecture](docs/Architecture.md)** - High-level system design, edge-node architecture, and gateway details.
 - 📐 **[Design](docs/Design.md)** - Component-level designs and implementation details.
 - 🛤️ **[Phases (Delivery Plan)](docs/Phases.md)** - Step-by-step roadmap for project delivery.
+- 📏 **[Evaluation (Measurement Method)](docs/Evaluation.md)** - Metrics, experiment scenarios, and evidence rules. No results measured yet.
+- ⚠️ **[Risks (Risk Register)](docs/Risks.md)** - Hardware, protocol, security, and process risks with fallbacks.
 - 📜 **[Rules (Engineering Rules)](docs/Rules.md)** - Coding style, project constraints, and architectural guidelines.
 
 ## 🚀 Current Status
@@ -54,10 +56,17 @@ Phase 1 currently uses only the Python standard library:
 
 ```bash
 python tools/packet_demo.py
+python simulator/feasibility_spike.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-The physical ESP32/PlatformIO setup begins after the two-node transport spike is approved.
+`simulator/feasibility_spike.py` is the Phase 1 stand-in for the physical two-node
+transport spike while no ESP32 boards are on hand. It proves the packet contract,
+retry, deduplication, and bounded-buffer behavior over a simulated link — it proves
+nothing about the radio. See [`simulator/README.md`](simulator/README.md).
+
+The physical ESP32/PlatformIO spike is still the open Phase 1 gate; the simulator
+does not close it.
 
 ## 🤝 Contributing
 
