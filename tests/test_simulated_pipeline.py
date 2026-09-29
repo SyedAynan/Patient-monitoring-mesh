@@ -313,6 +313,16 @@ class RelayForwardingTests(unittest.TestCase):
         mesh.relay.tick()
 
         self.assertEqual(mesh.relay.stats.forwarded, 1)
+
+        # The bytes sitting in the gateway's inbox must be the opaque payload,
+        # byte for byte: the relay moved it without understanding or altering it.
+        # `peek` is used rather than `drain` so the gateway can still consume it.
+        pending = medium.peek(GATEWAY_ID)
+        self.assertEqual(len(pending), 1)
+        forwarded = Frame.from_bytes(pending[0])
+        self.assertEqual(forwarded.payload, opaque)
+        self.assertEqual(forwarded.hop_count, 1)
+
         # The gateway rejects it, because it is not a valid telemetry packet.
         mesh.gateway.tick()
         self.assertEqual(mesh.gateway.stats.packets_invalid, 1)
