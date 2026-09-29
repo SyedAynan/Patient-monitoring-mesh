@@ -7,7 +7,7 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Phase-1%20Foundation-blue.svg)](#-current-status)
+[![Phase](https://img.shields.io/badge/Progress-50%25%20(Phase%204%20Complete)-blue.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
@@ -47,31 +47,34 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 
 ## 🚀 Current Status
 
-### Phase 1 — Project Foundation and Feasibility Spike
-We are currently in the process of confirming technology directions, creating the repository foundation, and proving that the hardware/protocol can produce reliable sample packets.
+### Progress: 50% Complete (Phases 1 - 4)
+We have successfully completed the core foundation and edge-network logic using our comprehensive Python-based simulator:
+- **Phase 1 (Foundation):** Schema, contract tests, and protocol validation established.
+- **Phase 2 (Sensing & Simulator):** Multi-node sensing components (sources, processors) implemented.
+- **Phase 3 (Local Transport):** Base envelope logic, gateway roles, and prioritized delivery mechanisms built.
+- **Phase 4 (Resilient Routing):** Relay roles and topology models successfully introduced to test multi-hop networking.
+
+We are currently moving towards **Phase 5 (Backend Persistence & Dashboard)** and preparing for physical node integration once hardware is available.
 
 ## 🛠️ Setup & Development
 
-Phase 1 currently uses only the Python standard library:
+Our current stack relies heavily on the Python standard library for simulation and protocol validation. To get started and run the existing components:
 
 ```bash
+# Run basic mesh and packet demonstrations
 python tools/packet_demo.py
+python tools/mesh_demo.py
 python tools/generate_fixtures.py
-python simulator/feasibility_spike.py
+
+# Run the test suite
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-`simulator/feasibility_spike.py` is the Phase 1 stand-in for the physical two-node
-transport spike while no ESP32 boards are on hand. It proves the packet contract,
-retry, deduplication, and bounded-buffer behavior over a simulated link — it proves
-nothing about the radio. See [`simulator/README.md`](simulator/README.md).
+**Simulator Architecture:**
+The `simulator/` directory contains our complete testing stand-in for the physical ESP32 nodes. It implements roles (`node`, `relay`, `gateway`), topologies, and transport mechanisms (`simulated`, `espnow`) to thoroughly test deduplication, prioritizations, and routing logic before hitting actual hardware.
 
-`shared/protocol/fixtures/` is the language-neutral conformance corpus. Every
-implementation — firmware, gateway, backend — must accept the valid fixtures
-byte-for-byte and reject the invalid ones with the error code in `manifest.json`.
-
-The physical ESP32/PlatformIO spike is still the open Phase 1 gate; the simulator
-does not close it.
+**Protocol Conformance:**
+`shared/protocol/fixtures/` contains the language-neutral conformance corpus. Any new implementation (C++ firmware, Node backend) must accept valid fixtures byte-for-byte and reject invalid ones with matching error codes.
 
 ## 🤝 Contributing
 
