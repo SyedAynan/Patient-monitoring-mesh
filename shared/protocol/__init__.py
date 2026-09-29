@@ -1,4 +1,5 @@
 from .telemetry_packet import (
+    ERROR_CODES,
     SCHEMA_VERSION,
     PacketValidationError,
     decode_packet,
@@ -8,6 +9,7 @@ from .telemetry_packet import (
 )
 
 __all__ = [
+    "ERROR_CODES",
     "SCHEMA_VERSION",
     "PacketValidationError",
     "decode_packet",
