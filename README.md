@@ -66,6 +66,10 @@ transport spike while no ESP32 boards are on hand. It proves the packet contract
 retry, deduplication, and bounded-buffer behavior over a simulated link — it proves
 nothing about the radio. See [`simulator/README.md`](simulator/README.md).
 
+`shared/protocol/fixtures/` is the language-neutral conformance corpus. Every
+implementation — firmware, gateway, backend — must accept the valid fixtures
+byte-for-byte and reject the invalid ones with the error code in `manifest.json`.
+
 The physical ESP32/PlatformIO spike is still the open Phase 1 gate; the simulator
 does not close it.
 
