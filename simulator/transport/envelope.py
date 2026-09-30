@@ -37,8 +37,17 @@ INVALID_ENDPOINT = "INVALID_ENDPOINT"
 INVALID_MESSAGE_ID = "INVALID_MESSAGE_ID"
 INVALID_HOP_COUNT = "INVALID_HOP_COUNT"
 HOP_LIMIT_EXCEEDED = "HOP_LIMIT_EXCEEDED"
+INVALID_KIND = "INVALID_KIND"
+INVALID_ACKS = "INVALID_ACKS"
 
-HEADER_FIELDS = ("source", "destination", "message_id", "hop_count")
+HEADER_FIELDS = ("source", "destination", "message_id", "hop_count", "kind", "acks")
+REQUIRED_HEADER_FIELDS = ("source", "destination", "message_id", "hop_count", "kind")
+
+# Frame kinds. `data` carries a payload; `ack` confirms receipt of a `data`
+# message and carries no payload of its own.
+KIND_DATA = "data"
+KIND_ACK = "ack"
+FRAME_KINDS = (KIND_DATA, KIND_ACK)
 
 
 class FrameError(ValueError):
@@ -64,6 +73,8 @@ class Frame:
     message_id: str
     payload: bytes
     hop_count: int = 0
+    kind: str = KIND_DATA
+    acks: str | None = None
 
     def __post_init__(self) -> None:
         _check_endpoint(self.source, "source")
@@ -76,6 +87,29 @@ class Frame:
             raise FrameError("payload must be bytes", NOT_BYTES)
         if len(self.payload) > MAX_PAYLOAD_LENGTH:
             raise FrameError("payload exceeds the maximum frame size", OVERSIZED_PAYLOAD)
+        if self.kind not in FRAME_KINDS:
+            raise FrameError(f"kind must be one of {FRAME_KINDS}", INVALID_KIND)
+        if self.kind == KIND_ACK:
+            # An ack identifies the message it confirms and carries no payload.
+            if not isinstance(self.acks, str) or not self.acks:
+                raise FrameError("an ack frame must name the message it acks", INVALID_ACKS)
+            if self.payload:
+                raise FrameError("an ack frame must not carry a payload", INVALID_ACKS)
+        elif self.acks is not None:
+            raise FrameError("only an ack frame may carry the acks field", INVALID_ACKS)
+
+    @classmethod
+    def acknowledgement(cls, *, source: str, destination: str, acks: str, hop: int = 0) -> "Frame":
+        """Build an ack for `acks`, addressed back to the original sender."""
+        return cls(
+            source=source,
+            destination=destination,
+            message_id=f"ack:{acks}",
+            payload=b"",
+            hop_count=hop,
+            kind=KIND_ACK,
+            acks=acks,
+        )
 
     @property
     def frame_id(self) -> str:
@@ -85,9 +119,8 @@ class Frame:
     def forwarded_by(self, relay_id: str) -> "Frame":
         """Return the same frame after one relay hop.
 
-        The source, destination, and message identity are preserved so the
-        gateway can still deduplicate; only `hop_count` (and the fact that this
-        frame is now headed onward) changes.
+        The source, destination, kind, and message identity are preserved so the
+        receiver can still deduplicate and ack correctly; only `hop_count` changes.
         """
         if self.hop_count + 1 > MAX_HOPS:
             raise FrameError("hop limit exceeded", HOP_LIMIT_EXCEEDED)
@@ -97,19 +130,21 @@ class Frame:
             message_id=self.message_id,
             payload=self.payload,
             hop_count=self.hop_count + 1,
+            kind=self.kind,
+            acks=self.acks,
         )
 
     def to_bytes(self) -> bytes:
-        header = json.dumps(
-            {
-                "source": self.source,
-                "destination": self.destination,
-                "message_id": self.message_id,
-                "hop_count": self.hop_count,
-            },
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
+        header_fields = {
+            "source": self.source,
+            "destination": self.destination,
+            "message_id": self.message_id,
+            "hop_count": self.hop_count,
+            "kind": self.kind,
+        }
+        if self.acks is not None:
+            header_fields["acks"] = self.acks
+        header = json.dumps(header_fields, separators=(",", ":"), sort_keys=True).encode("utf-8")
         if len(header) > MAX_HEADER_LENGTH:
             raise FrameError("header exceeds the maximum size", OVERSIZED_HEADER)
         return len(header).to_bytes(4, "big") + header + self.payload
@@ -143,7 +178,7 @@ class Frame:
         unknown = set(header) - set(HEADER_FIELDS)
         if unknown:
             raise FrameError(f"unknown header fields: {sorted(unknown)}", UNKNOWN_HEADER_FIELD)
-        missing = set(HEADER_FIELDS) - set(header)
+        missing = set(REQUIRED_HEADER_FIELDS) - set(header)
         if missing:
             raise FrameError(f"missing header fields: {sorted(missing)}", MISSING_HEADER_FIELD)
 
@@ -159,6 +194,8 @@ class Frame:
             message_id=header["message_id"],
             payload=payload,
             hop_count=hop_count,
+            kind=header["kind"],
+            acks=header.get("acks"),
         )
 
 
