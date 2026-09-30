@@ -1,7 +1,8 @@
 # Project Memory
 
-**Last updated:** 2026-09-28
-**Current phase:** Phase 1 — Project foundation and feasibility spike
+**Last updated:** 2026-09-30
+**Current phase:** Phase 2 — Single-node sensing and simulator contract (complete)
+**Next phase:** Phase 3 — Local transport and prioritized delivery
 
 ## Completed
 
@@ -28,22 +29,66 @@
   retries suppressed, corrupted frames rejected, buffer bounded, no growth.
 - `.gitignore` and `.env.example` added without secrets.
 
+### Phase 2 (complete as of 2026-09-30)
+
+Layered simulated pipeline in `simulator/`:
+
+- `transport/` — `Transport` protocol, `Frame` envelope (length-prefixed header +
+  opaque payload), `SimulatedMedium` with seeded fault injection, and `espnow.py`.
+- `sensing/` — `VitalSource` implementations (`Nominal`, `Trending`, `Noisy`,
+  `Faulty`), `SignalFilter` with a bounded window, plausibility bounds, and a
+  quality estimate derived from window dispersion.
+- `roles/` — `SensorNode`, `RelayNode`, `Gateway`. All three import only
+  `Transport` and `Frame`; none imports `SimulatedMedium`. A test enforces this.
+- `topology.py` — builds `node-01..05 -> relay-01 -> gateway-01`.
+- `tools/mesh_demo.py` — end-to-end demonstration harness.
+
+Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression):
+
+- Clean link delivers every packet with no gaps.
+- Loss and corruption produce gaps and rejections, never corrupted records.
+- Duplicate frames are delivered but stored once (dedup on `(device_id, sequence_number)`).
+- Out-of-order arrival stores by sequence number, not arrival order.
+- Reconnect resumes delivery; a failed transmission does not burn a sequence number.
+- A relay forwards frames without parsing the payload, and drops malformed frames
+  without stopping.
+- Same seed reproduces a run exactly.
+
 ## Important decisions
 
-- No third-party dependencies in Phase 1.
+- No third-party dependencies in Phase 1 or 2; standard library only.
 - Packet retries reuse `(device_id, sequence_number)`.
 - Critical and routine traffic are explicit priorities.
 - Prototype uses synthetic/non-clinical data only.
+- Transport is abstracted behind a `Transport` protocol so `EspNowTransport` can
+  replace `SimulatedMedium` without touching the protocol or application layers.
+- The `Frame` envelope is separate from the telemetry payload: the relay routes
+  frames and never parses vitals.
+- Signal quality comes from window dispersion, not a fixed constant; the node
+  refuses to publish a window below the minimum-quality gate rather than sending
+  a low-confidence reading as if it were good.
+- `MAX_SIGNAL_DISPERSION_BPM` (12 bpm) is a tuning constant, not a clinical
+  threshold.
 
 ## Known issues / TBD
 
-- The physical Phase 1 gate is still open: no ESP32 boards and no PlatformIO
-  toolchain in this workspace, so the two-node radio spike is unverified. The
-  simulator stand-in exercises the packet path only; it says nothing about radio
-  behavior, and no simulated number may be reported as a measured metric
-  (`docs/Evaluation.md`).
+- **Physical ESP32/ESP-NOW validation is DEFERRED until hardware is available.**
+  The user explicitly deferred it. No board has been flashed; no radio has been
+  tested. `simulator/transport/espnow.py` raises `NotImplementedError` and
+  `is_available()` returns `False`. The simulator exercises the packet and
+  application paths only; it says nothing about radio behavior, and no simulated
+  number may be reported as a measured metric (`docs/Evaluation.md`).
 - Final radio/mesh implementation needs hardware feasibility testing (risks R-01,
   R-02, R-07, R-08 in `docs/Risks.md`).
+- ESP-NOW's 250-byte payload limit is smaller than this project's
+  `MAX_PAYLOAD_LENGTH`; that gap must be resolved (smaller envelope or
+  application-level fragmentation) before firmware work starts.
+- No acknowledgement or retry policy exists yet, so a frame lost on the link is
+  simply lost. Phase 3 owns this.
+- No store-and-forward buffering: a packet that cannot be handed to the link is
+  counted and discarded, not retained. Phase 4 owns this.
+- One relay hop with no alternate path: relay failure is a total outage. Nothing
+  here is a "self-healing mesh".
 - Packet authentication/encryption is deferred to the security phase.
 - Existing untracked `assets/hardware.png` was not modified.
 - Unsolicited files appeared in the working tree during this phase and were not
@@ -53,4 +98,10 @@
 
 ## Next task
 
-Acquire/confirm two ESP32 boards and begin the two-node transport spike; keep the simulator as the fallback until PlatformIO is available. That spike is what closes Phase 1 — do not start Phase 2 sensing work before it.
+Phase 3 — local transport and prioritized delivery: priority queues so routine
+traffic cannot starve critical alerts, acknowledgements, bounded retries, and
+delivery/latency counters. Do not start Phase 4, the backend, the dashboard, risk
+scoring, or security work before Phase 3 is complete and tested.
+
+Physical ESP32/ESP-NOW work stays deferred until hardware is available. Nothing in
+the physical-transport column gets claimed as validated before then.

@@ -29,7 +29,8 @@ issues (Phase 8).
 | R-01 | ESP-NOW-style transport cannot be demonstrated as a multi-hop network: ESP-NOW is connectionless peer-to-peer and has no built-in routing | 1, 3, 4 | High | High | Treat relaying as an application-layer feature built on the node packet contract; measure relay behavior before making any mesh claim | Trigger: the two-node spike or relay test fails twice after fixes. Fallback: compare against Wi-Fi/802.15.4/Thread, or narrow the claim to single-hop with an explicit application relay and state the limitation honestly |
 | R-02 | Radio range or 2.4 GHz interference in the classroom prevents reliable delivery at demo time | 3, 4, 8 | High | Medium | Keep nodes and gateway close, fix channel, cap sample rate, use a mains-powered relay | Trigger: delivery ratio visibly degrades in a live dry run. Fallback: add a relay node, reduce rate, or run the demo from the simulator with the hardware as a separate short demonstration |
 | R-03 | No real-time clock on the ESP32; node time bases and clock drift | 2, 4 | Medium | High | Ordering and dedup by `(device_id, sequence_number)`; gateway receipt time recorded separately; document clock assumptions | Trigger: latency figures swing unexplainably between runs. Fallback: report latency only from single-clock experiments and mark radio latency as bounded/estimated |
-| R-04 | Sensor accuracy and stability: motion and fit degrade HR/SpO2 readings on low-cost modules | 2, 6 | Medium | High | Signal-quality gating, mark invalid readings as invalid, treat quality as first-class metadata (`Design.md` section 9) | Trigger: readings stay unusable after filtering work. Fallback: demonstrate with temperature plus simulator-driven vitals, and present the pulse-oximetry path as a measured limitation |
+| R-04 | Sensor accuracy and stability: motion and fit degrade HR/SpO2 readings on low-cost modules | 2, 6 | Medium | High | Signal-quality gating, mark invalid readings as invalid, treat quality as first-class metadata (`Design.md` section 9). Phase 2 implemented the gating: `SignalFilter` computes quality from window dispersion and the node skips a window below `MINIMUM_SIGNAL_QUALITY` instead of publishing it | Trigger: readings stay unusable after filtering work. Fallback: demonstrate with temperature plus simulator-driven vitals, and present the pulse-oximetry path as a measured limitation |
+| R-21 | Envelope overhead versus the real radio budget: `MAX_PAYLOAD_LENGTH` exceeds ESP-NOW's 250-byte payload limit, so a frame that is valid in simulation may not fit on hardware | 3, 4 | High | High | Keep the envelope small and the limit explicit; measure real frame size against the radio's limit during the hardware spike | Trigger: a maximum-size packet exceeds the radio's payload limit. Fallback: shrink the envelope or fragment at the application layer; do not silently truncate telemetry |
 | R-05 | Node memory and buffer bounds on the ESP32 | 2, 4 | Medium | Medium | Bounded ring buffers, explicit drop policy that never drops critical before routine, drop counts recorded (M-10) | Trigger: buffer-bound test (S-06) shows unexpected resets or corruption. Fallback: reduce buffered window to the measured safe bound and document the real capacity instead of the planned one |
 | R-06 | Power supply, battery runtime, and thermal behavior during a long demo | 4, 8 | Medium | Medium | Mains power for gateway and relay; bounded soak runs (S-08) | Trigger: nodes reset or throttle during the soak run. Fallback: shorten the demonstration window and split long-run evidence into separate recorded runs |
 | R-07 | Hardware procurement, shipping, or budget delay | 1 | High | Medium | Order early, keep the simulator as the standing fallback for every packet path (NFR-06) | Trigger: boards unavailable at the phase gate. Fallback: proceed on simulator evidence and mark the physical spike explicitly unverified; do not report simulated results as hardware results |
@@ -64,10 +65,21 @@ issues (Phase 8).
 
 ## 6. Current open risks
 
-- **R-01** is the highest-value unknown in Phase 1 and is exactly what the Phase 1
-  gate tests. It stays open until the physical spike produces measurements.
-- **R-07** and **R-08** are currently active: boards and the PlatformIO toolchain
-  are not available in this workspace, which is why the simulator stand-in
-  (`simulator/README.md`) is the documented fallback.
-- **R-04** will be reassessed in Phase 2, when real sensor readings are first
-  available.
+- **R-01** remains the highest-value unknown: whether ESP-NOW can relay at all,
+  given it is connectionless peer-to-peer with no built-in routing. Phase 2
+  implemented application-level relaying over an abstract transport, which proves
+  the *application* handles a second hop but proves nothing about the radio. The
+  risk stays open until the physical spike runs.
+- **Physical validation is deferred** as of 2026-09-29 (user decision). R-01,
+  R-02, R-07, and R-08 are therefore all deferred together, not closed. Nothing
+  in the physical-transport column may be reported as validated.
+- **R-07** and **R-08** are active: no boards and no PlatformIO toolchain in this
+  workspace, which is why the simulator is the documented fallback.
+- **R-04** was partially addressed in Phase 2 (quality gating and plausibility
+  checks implemented); the underlying sensor-accuracy question stays open until a
+  physical pulse-oximetry module is tested.
+- **R-21** is newly identified in Phase 2 and must be resolved before firmware
+  work starts.
+- **R-13** (scope overrun) is being watched: the README briefly described Phases
+  1–4 as complete when only 1 and 2 are. Status wording must follow the phase
+  table in `docs/Phases.md`, not the badge.
