@@ -4,21 +4,25 @@ The node owns no radio knowledge beyond "hand this frame to my next hop". Every
 packet it builds goes through the authoritative builder and validator in
 `shared/protocol`, so the wire format is the same one the fixtures pin down.
 
-This is the Phase 2 boundary. Deliberately *not* implemented here, because a
-later phase owns each one:
+Phase 3 adds the transmit side of prioritized delivery: built packets go into a
+bounded critical-first queue, are sent with bounded retries, and are removed only
+once acknowledged. A message that exhausts its retry budget becomes *failed*, and
+a later sample supersedes it with a new sequence number — the node never retries
+forever, and it never lets a stale packet hold the queue.
 
-- Store-and-forward buffering and backfill (Phase 4). A packet that cannot be
-  handed to the link is counted as dropped, not retained.
-- Priority policy (Phase 3). `priority` is configurable and defaults to routine;
-  deciding *when* a patient becomes critical is Phase 6.
-- Risk scoring (Phase 6). The `risk` block is left unset.
+Deliberately *not* here, because a later phase owns each one:
+
+- Store-and-forward buffering across a long outage (Phase 4). The queue is
+  bounded on purpose, and a frame refused at the bound is counted, not retained.
+- Deciding *when* a patient becomes critical (Phase 6). `priority` is configurable;
+  the node does not yet score risk.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from shared.protocol import PacketValidationError, make_packet
+from shared.protocol import PacketValidationError, decode_packet, make_packet
 
 from ..sensing.processing import (
     FilterOutcome,
@@ -27,7 +31,14 @@ from ..sensing.processing import (
     validate_against_contract,
 )
 from ..sensing.sources import SensorUnavailable, VitalSource
-from ..transport import Frame, LinkUnavailable, Transport
+from ..transport import Frame, FrameError, LinkUnavailable, Transport
+from .priority import (
+    PRIORITY_ROUTINE,
+    PRIORITY_ORDER,
+    PendingFrame,
+    PriorityQueue,
+    RetryPolicy,
+)
 
 
 @dataclass
@@ -40,11 +51,15 @@ class NodeConfig:
     next_hop: str
     samples_per_packet: int = 5
     window_size: int = 5
-    priority: str = "routine"
+    priority: str = PRIORITY_ROUTINE
+    queue_capacity: int = 64
+    max_attempts: int = 3
 
     def __post_init__(self) -> None:
         if self.samples_per_packet < 1:
             raise ValueError("samples_per_packet must be at least 1")
+        if self.priority not in PRIORITY_ORDER:
+            raise ValueError(f"priority must be one of {PRIORITY_ORDER}")
 
 
 @dataclass
@@ -57,8 +72,15 @@ class NodeStats:
     windows_skipped: int = 0
     packets_built: int = 0
     packets_sent: int = 0
+    packets_acknowledged: int = 0
+    retransmissions: int = 0
+    packets_failed_retry_exhausted: int = 0
+    packets_refused_queue_full: int = 0
+    packets_evicted_for_priority: int = 0
     packets_dropped_link_unavailable: int = 0
     packets_failed_contract: int = 0
+    acks_received: int = 0
+    acks_ignored: int = 0
     last_skip_reason: str | None = None
 
 
@@ -70,6 +92,8 @@ class SensorNode:
     source: VitalSource
     transport: Transport
     stats: NodeStats = field(default_factory=NodeStats)
+    queue: PriorityQueue = field(init=False)
+    retry_policy: RetryPolicy = field(init=False)
     _filter: SignalFilter = field(init=False, repr=False)
     _sequence: int = field(default=1, init=False)
     _samples_since_packet: int = field(default=0, init=False)
@@ -77,6 +101,8 @@ class SensorNode:
 
     def __post_init__(self) -> None:
         self._filter = SignalFilter(window_size=self.config.window_size)
+        self.queue = PriorityQueue(capacity=self.config.queue_capacity)
+        self.retry_policy = RetryPolicy(max_attempts=self.config.max_attempts)
 
     @property
     def device_id(self) -> str:
@@ -94,6 +120,10 @@ class SensorNode:
     def signal_quality(self) -> float:
         return self._filter.signal_quality()
 
+    @property
+    def queue_depth(self) -> int:
+        return self.queue.depth
+
     def sample(self, captured_at_ms: int) -> None:
         """Read the sensor once and add the reading to the filter window."""
         try:
@@ -110,12 +140,12 @@ class SensorNode:
         self._samples_since_packet += 1
         self._last_captured_at_ms = captured_at_ms
 
-    def _build_packet(self) -> dict:
+    def _build_packet(self) -> dict | None:
         outcome: FilterOutcome = self._filter.result()
         if not outcome.is_usable:
             self.stats.windows_skipped += 1
             self.stats.last_skip_reason = outcome.reason
-            return {}
+            return None
         vitals = outcome.vitals
         assert vitals is not None
         packet = make_packet(
@@ -129,51 +159,114 @@ class SensorNode:
             priority=self.config.priority,
             signal_quality=vitals.signal_quality,
         )
-        # The node is the first boundary; the gateway validates again on receipt.
         return validate_against_contract(packet)
 
-    def tick(self, captured_at_ms: int) -> bool:
-        """One sampling instant. Returns True when a packet was built and sent.
-
-        A packet is only attempted once enough samples have accumulated. A retry
-        after a link failure reuses the same sequence number, per the protocol's
-        reliability rules; only a successfully sent packet advances it.
-        """
-        self.sample(captured_at_ms)
-        if self._samples_since_packet < self.config.samples_per_packet:
-            return False
-
-        self._samples_since_packet = 0
-        packet = self._build_packet()
-        if not packet:
-            return False
-
-        self.stats.packets_built += 1
+    def _enqueue(self, packet: dict) -> bool:
+        try:
+            payload = _encode(packet)
+        except PacketValidationError:
+            self.stats.packets_failed_contract += 1
+            raise
         frame = Frame(
             source=self.config.device_id,
             destination=self.config.gateway_id,
             message_id=f"{self.config.device_id}:{packet['sequence_number']}",
-            payload=self._encode(packet),
+            payload=payload,
         )
+        admitted = self.queue.enqueue(frame, priority=self.config.priority)
+        if admitted:
+            for pending in self.queue.pending_messages():
+                if pending.message_id == frame.message_id:
+                    pending.sequence_number = packet["sequence_number"]
+                    break
+        return admitted
+
+    def _transmit_pending(self) -> None:
+        """Send the highest-priority pending frame, retrying within budget.
+
+        Called once per tick, so at most one message is attempted per tick. That
+        keeps a busy queue from monopolising the radio and makes retry timing
+        observable in tests.
+        """
+        pending: PendingFrame | None = self.queue.next_to_send()
+        if pending is None:
+            return
+        if not self.retry_policy.has_budget(pending.attempts):
+            self.stats.packets_failed_retry_exhausted += 1
+            self.queue.discard(pending)
+            return
+
+        pending.attempts += 1
+        if pending.attempts > 1:
+            self.stats.retransmissions += 1
         try:
-            self.transport.transmit(self.config.next_hop, frame.to_bytes())
+            self.transport.transmit(self.config.next_hop, pending.frame.to_bytes())
         except LinkUnavailable:
-            # Phase 4 owns buffering; for now the packet is counted as lost and
-            # the sequence number is NOT advanced, so a later attempt reuses it.
+            # The radio refused the frame; it was never put on the wire. Count it
+            # and keep the message queued for the next attempt.
             self.stats.packets_dropped_link_unavailable += 1
-            return False
-
-        self.stats.packets_sent += 1
-        self._sequence += 1
-        return True
-
-    def _encode(self, packet: dict) -> bytes:
-        from shared.protocol import encode_packet
-
-        try:
-            return encode_packet(packet)
-        except PacketValidationError:
-            # Unreachable while `_build_packet` validates first; counted so a
-            # future edit that breaks that guarantee is visible rather than silent.
+            return
+        except FrameError:
             self.stats.packets_failed_contract += 1
-            raise
+            self.queue.discard(pending)
+            return
+        self.stats.packets_sent += 1
+
+    def _handle_acks(self) -> None:
+        """Consume acknowledgement frames addressed to this node."""
+        for raw in self.transport.poll():
+            try:
+                frame = Frame.from_bytes(raw)
+            except FrameError:
+                continue
+            if frame.destination != self.config.device_id or frame.kind != "ack":
+                continue
+            self.stats.acks_received += 1
+            if self.queue.acknowledge(frame.acks or ""):
+                self.stats.packets_acknowledged += 1
+            else:
+                # A duplicate ack is expected under retries, not an error.
+                self.stats.acks_ignored += 1
+
+    def _drain_acknowledged(self) -> None:
+        for pending in self.queue.pending_messages():
+            if pending.acked:
+                self.queue.discard(pending)
+
+    def tick(self, captured_at_ms: int) -> bool:
+        """One sampling instant. Returns True when a new packet was queued."""
+        self._handle_acks()
+        self._drain_acknowledged()
+        self.sample(captured_at_ms)
+
+        queued = False
+        if self._samples_since_packet >= self.config.samples_per_packet:
+            self._samples_since_packet = 0
+            packet = self._build_packet()
+            if packet is not None:
+                self.stats.packets_built += 1
+                if self._enqueue(packet):
+                    # Only a queued message consumes a sequence number, so a
+                    # retry keeps reusing the same one.
+                    self._sequence += 1
+                    queued = True
+                else:
+                    self.stats.packets_refused_queue_full += 1
+
+        self._transmit_pending()
+        self.stats.packets_evicted_for_priority = self.queue.evicted_for_priority
+        return queued
+
+    def pending_messages(self) -> list[PendingFrame]:
+        return self.queue.pending_messages()
+
+
+def _encode(packet: dict) -> bytes:
+    from shared.protocol import encode_packet
+
+    return encode_packet(packet)
+
+
+def decode_payload(payload: bytes) -> dict:
+    """Decode a frame payload as a telemetry packet; used by receivers."""
+    return decode_packet(payload)

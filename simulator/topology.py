@@ -69,15 +69,22 @@ class Mesh:
         raise KeyError(device_id)
 
     def tick(self, captured_at_ms: int) -> None:
-        """One full round: every node samples, then the relay and gateway drain.
+        """One full round, ordering the steps so an ack returns within it.
 
-        The relay is stepped before the gateway so a frame crosses at most one
-        hop per tick, which keeps delivery timing easy to reason about in tests.
+        1. Nodes read their inbox (acks from the previous round), sample, queue,
+           and transmit one frame each.
+        2. The relay forwards those frames onward to the gateway.
+        3. The gateway accepts them and sends acks back toward the relay.
+        4. The relay carries those acks home to the nodes.
+
+        Step 4 is what lets a node observe its acknowledgement on the next tick
+        instead of the one after, which keeps retry timing tight and observable.
         """
         for node in self.nodes:
             node.tick(captured_at_ms)
         self.relay.tick()
         self.gateway.tick()
+        self.relay.tick()
 
 
 def build_standard_mesh(
@@ -112,7 +119,6 @@ def build_standard_mesh(
     medium.register(RELAY_ID)
 
     gateway = Gateway(gateway_id=GATEWAY_ID, transport=medium.transport(GATEWAY_ID))
-    relay = RelayNode(relay_id=RELAY_ID, next_hop=GATEWAY_ID, transport=medium.transport(RELAY_ID))
 
     nodes: list[SensorNode] = []
     for index, (device_id, patient_id, factory, _label) in enumerate(PATIENT_PROFILES[:patient_count]):
@@ -137,6 +143,13 @@ def build_standard_mesh(
 
     if use_relay:
         medium.connect(RELAY_ID, GATEWAY_ID)
+
+    relay = RelayNode(
+        relay_id=RELAY_ID,
+        next_hop=GATEWAY_ID,
+        transport=medium.transport(RELAY_ID),
+        downstream=frozenset(node.device_id for node in nodes) if use_relay else frozenset(),
+    )
 
     return Mesh(
         medium=medium,

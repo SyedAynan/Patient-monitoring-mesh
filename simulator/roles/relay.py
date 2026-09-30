@@ -32,7 +32,14 @@ class RelayStats:
 
 @dataclass
 class RelayNode:
-    """Forwards frames toward a configured next hop."""
+    """Forwards frames between leaf endpoints and the gateway.
+
+    A frame is sent toward the gateway when its destination is not a leaf this
+    relay serves, and back to the leaf when it is — which is what carries an
+    acknowledgement home to the node that is waiting for it. The relay still
+    reads only the routing header: `kind` and `acks` belong to the envelope, and
+    the payload stays opaque.
+    """
 
     relay_id: str
     next_hop: str
@@ -40,12 +47,30 @@ class RelayNode:
     # Endpoints this relay will accept frames from. Empty means "accept any",
     # which is what the simulator uses; a lab deployment would restrict it.
     allowed_sources: frozenset[str] = field(default_factory=frozenset)
+    # Leaf endpoints reachable through this relay. A frame addressed to one of
+    # these goes back down; anything else is sent onward to `next_hop`.
+    downstream: frozenset[str] = field(default_factory=frozenset)
     stats: RelayStats = field(default_factory=RelayStats)
 
     def _should_forward(self, frame: Frame) -> bool:
         if not self.allowed_sources:
             return True
         return frame.source in self.allowed_sources
+
+    def _route_for(self, frame: Frame) -> str | None:
+        """Which neighbour to hand this frame to, or None if unroutable."""
+        # A frame already at its destination is not the relay's business.
+        if frame.destination == self.relay_id:
+            return None
+        if frame.destination in self.downstream:
+            return frame.destination
+        if frame.source in self.downstream:
+            return self.next_hop
+        # Unknown destination and unknown source: only forwardable when the relay
+        # is not partitioning the network, i.e. when it has no declared leaves.
+        if not self.downstream:
+            return self.next_hop
+        return None
 
     def tick(self) -> int:
         """Drain the inbox and forward everything routable. Returns frames forwarded."""
@@ -63,8 +88,8 @@ class RelayNode:
                 self.stats.dropped_unknown_destination += 1
                 continue
 
-            # A frame already at its destination is not the relay's business.
-            if frame.destination == self.relay_id:
+            neighbour = self._route_for(frame)
+            if neighbour is None:
                 self.stats.dropped_unknown_destination += 1
                 continue
 
@@ -75,7 +100,7 @@ class RelayNode:
                 continue
 
             try:
-                self.transport.transmit(self.next_hop, onward.to_bytes())
+                self.transport.transmit(neighbour, onward.to_bytes())
             except LinkUnavailable:
                 # No Phase 4 buffering yet: counted, not retained.
                 self.stats.dropped_link_unavailable += 1

@@ -11,7 +11,13 @@ Responsibilities, all bounded:
 - Verify the frame is addressed here.
 - Validate the telemetry payload against the protocol contract.
 - Deduplicate on `(device_id, sequence_number)`, the key the contract specifies.
+- Acknowledge accepted messages so the sender can stop retrying.
 - Record accepted packets and account for every rejected one.
+
+Acknowledging is what makes the sender's retry loop terminate. A duplicate
+telemetry frame is acknowledged *again* — the sender may have retried because the
+first ack was lost, and refusing to re-ack would leave it retrying until its
+budget ran out.
 """
 
 from __future__ import annotations
@@ -20,7 +26,7 @@ from dataclasses import dataclass, field
 
 from shared.protocol import PacketValidationError, decode_packet
 
-from ..transport import Frame, FrameError, Transport
+from ..transport import Frame, FrameError, LinkUnavailable, Transport
 
 
 @dataclass
@@ -33,13 +39,15 @@ class GatewayStats:
     packets_accepted: int = 0
     packets_duplicate: int = 0
     packets_invalid: int = 0
+    acks_sent: int = 0
+    acks_failed_unsent: int = 0
     last_error_code: str | None = None
     last_error_source: str | None = None
 
 
 @dataclass
 class Gateway:
-    """Receives telemetry, validates it, and deduplicates it."""
+    """Receives telemetry, validates it, acknowledges it, and deduplicates it."""
 
     gateway_id: str
     transport: Transport
@@ -47,6 +55,34 @@ class Gateway:
     received: dict[tuple[str, int], dict] = field(default_factory=dict)
     # Ordered log of accepted packets, for sequence and ordering assertions.
     accepted_order: list[tuple[str, int]] = field(default_factory=list)
+
+    def _send_ack(self, frame: Frame) -> None:
+        """Acknowledge a message back toward its original sender."""
+        ack = Frame.acknowledgement(
+            source=self.gateway_id,
+            destination=frame.source,
+            acks=frame.message_id,
+        )
+        # The ack returns the way the data came: via the relay when one is in use.
+        neighbour = self._ack_neighbour(frame)
+        try:
+            self.transport.transmit(neighbour, ack.to_bytes())
+        except LinkUnavailable:
+            self.stats.acks_failed_unsent += 1
+            return
+        self.stats.acks_sent += 1
+
+    def _ack_neighbour(self, frame: Frame) -> str:
+        """Where to send an ack: back toward the relay if this frame came through one.
+
+        A hop count above zero means the frame was forwarded, so the ack goes back
+        to the relay rather than directly to the source.
+        """
+        if frame.hop_count > 0:
+            neighbours = self.transport.neighbours()
+            if neighbours:
+                return neighbours[0]
+        return frame.source
 
     def _accept(self, frame: Frame) -> None:
         try:
@@ -60,13 +96,16 @@ class Gateway:
         key = (packet["device_id"], int(packet["sequence_number"]))
         if key in self.received:
             # Expected under retransmission: the same packet arriving twice is
-            # normal, and must not create a second record (FR-05).
+            # normal, and must not create a second record (FR-05). Ack again so
+            # the sender stops retrying.
             self.stats.packets_duplicate += 1
+            self._send_ack(frame)
             return
 
         self.received[key] = packet
         self.accepted_order.append(key)
         self.stats.packets_accepted += 1
+        self._send_ack(frame)
 
     def tick(self) -> int:
         """Drain the inbox. Returns the number of newly accepted packets."""
@@ -81,6 +120,10 @@ class Gateway:
                 continue
 
             if frame.destination != self.gateway_id:
+                self.stats.frames_not_for_me += 1
+                continue
+            if frame.kind != "data":
+                # A stray ack arriving here is not this gateway's business.
                 self.stats.frames_not_for_me += 1
                 continue
 
