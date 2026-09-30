@@ -5,12 +5,34 @@
 
 ## Phase tracking
 
-- **Completed phases:** Phase 1 contract foundation subtask — packet schema, validator, demo, and tests
-- **CURRENT PHASE:** Phase 1 — Project foundation and feasibility spike
-- **NEXT PHASE:** Phase 2 — Single-node sensing and simulator contract
-- **Phase 1 remaining gate:** physical two-node transport feasibility spike
+- **Completed phases:** Phase 1 — project foundation (packet schema, validator,
+  conformance fixtures, feasibility spike). Phase 2 — simulated sensing pipeline
+  (sources, filtering, node/relay/gateway roles, abstract transport).
+- **CURRENT PHASE:** Phase 3 — Local transport and prioritized delivery
+- **NEXT PHASE:** Phase 4 — Resilient routing and store-and-forward
+- **DEFERRED:** physical ESP32/ESP-NOW validation, until hardware is available.
+  Deferred by explicit decision on 2026-09-29. No radio result may be claimed
+  before it runs on real boards.
 
 Each phase must be completed, tested, and documented before the next begins. Do not implement the next phase automatically.
+
+## Phase status
+
+| Phase | Status | Notes |
+| --- | --- | --- |
+| 1 — Foundation | Complete | Contract, fixtures, validator, feasibility spike. Physical gate deferred. |
+| 2 — Sensing & simulator | Complete | 79 tests pass. Simulated pipeline over an abstract transport. |
+| 3 — Local transport | Not started | Priority, acknowledgements, retries. |
+| 4 — Resilient routing | Not started | Store-and-forward, alternate paths. |
+| 5 — Backend & dashboard | Not started | |
+| 6 — Edge intelligence | Not started | |
+| 7 — Security | Not started | |
+| 8 — Evaluation & demo | Not started | |
+
+**Terminology guard:** the packet contract defines a `priority` field, but no
+priority *policy* exists until Phase 3. One relay hop with no alternate path is
+not a mesh, and must not be described as one until Phase 4 measures reroute
+behavior (Rules section 9).
 
 ---
 
@@ -95,6 +117,21 @@ None.
 - One physical node and the simulator produce equivalent valid packets.
 - Invalid/stale readings are marked safely.
 - Tests pass; hardware limitations documented.
+
+### Status: complete (simulator side) — 2026-09-30
+- Five simulated patient profiles (stable, elevated, poor contact, deteriorating,
+  intermittent sensor fault, and a dead sensor) plus a relay and a gateway.
+- Filtering, plausibility checks, and dispersion-based signal quality with a
+  minimum-quality gate; implausible or unusable data is never published.
+- Packet building goes through the existing `shared/protocol` builder and
+  validator — no second packet format was introduced.
+- Deterministic faults: loss, duplication, corruption, reordering, and link
+  outage/reconnect, all seeded and reproducible.
+- Transport abstracted behind a `Transport` protocol; roles never touch
+  `SimulatedMedium`. `espnow.py` marks the replacement seam.
+- 50 new tests; 79 total, no regression.
+- **Not met:** the physical-node half of the Definition of Done. Hardware is not
+  available, so it is deferred, not waived. The simulator is not a substitute.
 
 ---
 

@@ -7,7 +7,7 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Progress-50%25%20(Phase%204%20Complete)-blue.svg)](#-current-status)
+[![Phase](https://img.shields.io/badge/Progress-Phase%202%20Complete-blue.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
@@ -47,14 +47,32 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 
 ## <img src="./assets/rocket_icon.png" width="24" align="center"> Current Status
 
-### Progress: 50% Complete (Phases 1 - 4)
-We have successfully completed the core foundation and edge-network logic using our comprehensive Python-based simulator:
-- **Phase 1 (Foundation):** Schema, contract tests, and protocol validation established.
-- **Phase 2 (Sensing & Simulator):** Multi-node sensing components (sources, processors) implemented.
-- **Phase 3 (Local Transport):** Base envelope logic, gateway roles, and prioritized delivery mechanisms built.
-- **Phase 4 (Resilient Routing):** Relay roles and topology models successfully introduced to test multi-hop networking.
+### Progress: Phase 2 Complete (of 8)
+Two phases are done, verified by 79 passing tests:
 
-We are currently moving towards **Phase 5 (Backend Persistence & Dashboard)** and preparing for physical node integration once hardware is available.
+- **Phase 1 (Foundation) — complete:** versioned packet schema, authoritative
+  validator with stable error codes, language-neutral conformance fixtures, and a
+  feasibility spike.
+- **Phase 2 (Sensing & simulated pipeline) — complete:** simulated patient nodes,
+  a relay, and a gateway running over an abstract transport, with deterministic
+  loss, duplication, corruption, reordering, and reconnect handling.
+
+**Not yet built** — do not mistake the simulator for these:
+
+- **Phase 3 (priority, acknowledgements, retries):** the packet contract *defines*
+  `priority`, but there is no priority queue, no acknowledgement, and no retry
+  policy yet.
+- **Phase 4 (store-and-forward, resilient routing):** there is one relay hop and
+  no alternate path, so relay loss is a full outage. Nothing here is a
+  "self-healing mesh", and the project will not claim that until Phase 4 measures it.
+- **Phases 5–8:** no backend, database, dashboard, risk scoring, or security work
+  has started.
+
+> **⚠️ Physical ESP32 / ESP-NOW validation: DEFERRED until hardware is available.**
+> No board has been flashed and no radio has been tested. `simulator/transport/espnow.py`
+> raises `NotImplementedError` and `is_available()` returns `False`. Every result in
+> this repository comes from a simulated link on a single clock and is **not** a
+> measured network result.
 
 ## <img src="./assets/tools_icon.png" width="24" align="center"> Setup & Development
 
@@ -70,8 +88,21 @@ python tools/generate_fixtures.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-**Simulator Architecture:**
-The `simulator/` directory contains our complete testing stand-in for the physical ESP32 nodes. It implements roles (`node`, `relay`, `gateway`), topologies, and transport mechanisms (`simulated`, `espnow`) to thoroughly test deduplication, prioritizations, and routing logic before hitting actual hardware.
+**Simulator architecture.** The `simulator/` directory is the stand-in for physical
+ESP32 nodes, and it is layered so a real radio can replace the simulated one:
+
+```text
+simulator/
+  transport/    Transport protocol, Frame envelope, SimulatedMedium, espnow.py (unimplemented)
+  sensing/      VitalSource implementations, SignalFilter, plausibility checks
+  roles/        SensorNode, RelayNode, Gateway  -- depend on Transport, not on the medium
+  topology.py   builds node -> relay -> gateway
+```
+
+Roles import only the `Transport` protocol and `Frame`, never `SimulatedMedium`.
+That is what makes `EspNowTransport` a drop-in replacement for the link rather than
+a rewrite of the application layer. `tests/test_simulated_pipeline.py` asserts
+this separation, so it cannot quietly erode.
 
 **Protocol Conformance:**
 `shared/protocol/fixtures/` contains the language-neutral conformance corpus. Any new implementation (C++ firmware, Node backend) must accept valid fixtures byte-for-byte and reject invalid ones with matching error codes.

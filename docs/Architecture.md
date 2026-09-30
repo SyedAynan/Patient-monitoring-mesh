@@ -68,6 +68,44 @@ Phase 1 decisions are Python/FastAPI backend, React + TypeScript dashboard, SQLi
 - Integration tests for gateway-to-backend ingestion.
 - Hardware-in-the-loop tests where hardware exists; simulator fixtures must cover everything else.
 
+## 3a. Implemented structure (Phase 2)
+
+Phase 2 built the simulator side of the embedded and transport layers. The
+layering exists so a real radio replaces the simulated one without touching the
+protocol or application code:
+
+```text
+shared/protocol/          contract, validator, error codes, conformance fixtures
+simulator/
+  transport/
+    base.py               Transport protocol + LinkUnavailable
+    envelope.py           Frame: routing header + opaque payload
+    simulated.py          SimulatedMedium + SimulatedTransport (fault injection)
+    espnow.py             EspNowTransport -- NOT IMPLEMENTED, deferred
+  sensing/
+    sources.py            VitalSource implementations (nominal/trending/noisy/faulty)
+    processing.py         plausibility bounds, SignalFilter, quality estimate
+  roles/
+    node.py               SensorNode: sample -> filter -> build -> transmit
+    relay.py              RelayNode: forward frames, never parse payloads
+    gateway.py            Gateway: validate, deduplicate, account
+  topology.py             builds node -> relay -> gateway
+```
+
+**Dependency rule:** `roles/` may import `transport.base` and `transport.envelope`;
+it must never import `transport.simulated` or a concrete medium. A test in
+`tests/test_simulated_pipeline.py` asserts this, so the seam cannot erode silently.
+
+**Frame versus payload.** The `Frame` envelope carries routing only (`source`,
+`destination`, `message_id`, `hop_count`) and treats the payload as opaque bytes.
+For telemetry the payload is exactly the `TelemetryPacketV1` bytes. A relay
+therefore forwards vitals it never interprets, and the protocol layer is unaware
+of which radio carried it.
+
+**What Phase 2 deliberately does not do:** priority queues and acknowledgement
+(Phase 3), store-and-forward and alternate paths (Phase 4), persistence and
+dashboard (Phase 5), risk scoring (Phase 6), authentication (Phase 7).
+
 ## 4. Frontend architecture
 
 - `AppShell`: navigation, environment/status banner, responsive layout.
