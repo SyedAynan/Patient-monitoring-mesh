@@ -7,7 +7,7 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Progress-Phase%202%20Complete-blue.svg)](#-current-status)
+[![Phase](https://img.shields.io/badge/Progress-Phase%203%20Complete-blue.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
@@ -47,8 +47,8 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 
 ## <img src="./assets/rocket_icon.png" width="24" align="center"> Current Status
 
-### Progress: Phase 2 Complete (of 8)
-Two phases are done, verified by 79 passing tests:
+### Progress: Phase 3 Complete (of 8)
+Three phases are done, verified by 105 passing tests:
 
 - **Phase 1 (Foundation) — complete:** versioned packet schema, authoritative
   validator with stable error codes, language-neutral conformance fixtures, and a
@@ -56,15 +56,17 @@ Two phases are done, verified by 79 passing tests:
 - **Phase 2 (Sensing & simulated pipeline) — complete:** simulated patient nodes,
   a relay, and a gateway running over an abstract transport, with deterministic
   loss, duplication, corruption, reordering, and reconnect handling.
+- **Phase 3 (Local transport & prioritized delivery) — complete:** bounded
+  critical-first priority queues, an acknowledgement frame the relay returns to
+  senders, and bounded retries that measurably raise delivery under loss.
 
 **Not yet built** — do not mistake the simulator for these:
 
-- **Phase 3 (priority, acknowledgements, retries):** the packet contract *defines*
-  `priority`, but there is no priority queue, no acknowledgement, and no retry
-  policy yet.
-- **Phase 4 (store-and-forward, resilient routing):** there is one relay hop and
-  no alternate path, so relay loss is a full outage. Nothing here is a
-  "self-healing mesh", and the project will not claim that until Phase 4 measures it.
+- **Phase 4 (store-and-forward, resilient routing):** the transmit queue is
+  bounded, but there is no durable buffering or backfill, and there is one relay
+  hop with no alternate path, so relay loss is still a full outage. Nothing here
+  is a "self-healing mesh", and the project will not claim that until Phase 4
+  measures it.
 - **Phases 5–8:** no backend, database, dashboard, risk scoring, or security work
   has started.
 

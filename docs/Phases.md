@@ -7,8 +7,10 @@
 
 - **Completed phases:** Phase 1 — project foundation (packet schema, validator,
   conformance fixtures, feasibility spike). Phase 2 — simulated sensing pipeline
-  (sources, filtering, node/relay/gateway roles, abstract transport).
-- **CURRENT PHASE:** Phase 3 — Local transport and prioritized delivery
+  (sources, filtering, node/relay/gateway roles, abstract transport). Phase 3 —
+  local transport and prioritized delivery (ack frame, priority queue, bounded
+  retries, gateway acks).
+- **CURRENT PHASE:** Phase 3 complete; awaiting phase-gate review
 - **NEXT PHASE:** Phase 4 — Resilient routing and store-and-forward
 - **DEFERRED:** physical ESP32/ESP-NOW validation, until hardware is available.
   Deferred by explicit decision on 2026-09-29. No radio result may be claimed
@@ -21,8 +23,8 @@ Each phase must be completed, tested, and documented before the next begins. Do 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | 1 — Foundation | Complete | Contract, fixtures, validator, feasibility spike. Physical gate deferred. |
-| 2 — Sensing & simulator | Complete | 79 tests pass. Simulated pipeline over an abstract transport. |
-| 3 — Local transport | Not started | Priority, acknowledgements, retries. |
+| 2 — Sensing & simulator | Complete | Simulated pipeline over an abstract transport. |
+| 3 — Local transport | Complete | Priority queue, acks, bounded retries. 105 tests pass. |
 | 4 — Resilient routing | Not started | Store-and-forward, alternate paths. |
 | 5 — Backend & dashboard | Not started | |
 | 6 — Edge intelligence | Not started | |
@@ -171,6 +173,26 @@ Minimal connectivity and packet metrics view.
 - Multiple nodes deliver packets to the gateway.
 - Critical traffic is measurably prioritized.
 - Metrics stored and visible.
+
+### Status: complete (simulator side) — 2026-10-01
+- Ack frame added to the envelope: `kind=data|ack`, `acks` names the confirmed
+  message; the relay carries acks back down as well as data up.
+- Bounded critical-first `PriorityQueue`: routine frames never drain before a
+  waiting critical frame, capacity is enforced, and a critical admission can
+  evict the oldest routine frame (counted, never silent).
+- Bounded `RetryPolicy`: a message is retried at most `max_attempts-1` times,
+  reusing its message identity; exhaustion is counted and the message is dropped,
+  never retried forever.
+- The gateway acks on acceptance *and on duplicate*, so a sender whose first ack
+  was lost still terminates its retry loop.
+- Sequence semantics finalized: a sequence number is consumed when a message is
+  queued; retries and retransmissions reuse it (which is what licenses gateway
+  dedup on `(device_id, sequence_number)`).
+- 26 new tests in `tests/test_priority_delivery.py`; 105 total, no regressions.
+  Retries verified to raise delivery under 40% loss: 19% → 50% → 73% accepted as
+  the budget grows from 1 to 6.
+- **"Metrics stored and visible"** is satisfied only in-process (stats objects
+  and the demo). Persistent storage belongs to Phase 5.
 
 ---
 

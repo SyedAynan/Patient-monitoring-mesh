@@ -54,12 +54,19 @@ class NodeConfig:
     priority: str = PRIORITY_ROUTINE
     queue_capacity: int = 64
     max_attempts: int = 3
+    # Phase 4: alternate next hop used when the primary becomes unreachable.
+    # None keeps the Phase 3 single-path behaviour.
+    alternate_hop: str | None = None
+    # Consecutive transmit failures on the current hop before switching.
+    reroute_after_failures: int = 2
 
     def __post_init__(self) -> None:
         if self.samples_per_packet < 1:
             raise ValueError("samples_per_packet must be at least 1")
         if self.priority not in PRIORITY_ORDER:
             raise ValueError(f"priority must be one of {PRIORITY_ORDER}")
+        if self.reroute_after_failures < 1:
+            raise ValueError("reroute_after_failures must be at least 1")
 
 
 @dataclass
@@ -82,6 +89,9 @@ class NodeStats:
     acks_received: int = 0
     acks_ignored: int = 0
     last_skip_reason: str | None = None
+    # Phase 4: route changes and when the latest one happened.
+    route_changes: int = 0
+    last_route_change_at_ms: int | None = None
 
 
 @dataclass
@@ -98,11 +108,19 @@ class SensorNode:
     _sequence: int = field(default=1, init=False)
     _samples_since_packet: int = field(default=0, init=False)
     _last_captured_at_ms: int = field(default=0, init=False)
+    _consecutive_failures: int = field(default=0, init=False)
+    _active_hop: str | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self._filter = SignalFilter(window_size=self.config.window_size)
         self.queue = PriorityQueue(capacity=self.config.queue_capacity)
         self.retry_policy = RetryPolicy(max_attempts=self.config.max_attempts)
+        self._active_hop = self.config.next_hop
+
+    @property
+    def active_hop(self) -> str:
+        """The hop currently in use, after any route change."""
+        return self._active_hop or self.config.next_hop
 
     @property
     def device_id(self) -> str:
@@ -181,7 +199,35 @@ class SensorNode:
                     break
         return admitted
 
-    def _transmit_pending(self) -> None:
+    def _reroute(self, captured_at_ms: int | None = None) -> bool:
+        """Switch to the alternate hop when the active one is failing.
+
+        Returns True when a route change happened. A route change is a recorded
+        network event, not a silent reconfiguration: `stats.route_changes` counts
+        it and `last_route_change_at_ms` stamps when.
+        """
+        if self.config.alternate_hop is None:
+            return False
+        if self._active_hop == self.config.alternate_hop:
+            return False
+        self._active_hop = self.config.alternate_hop
+        self.stats.route_changes += 1
+        if captured_at_ms is not None:
+            self.stats.last_route_change_at_ms = captured_at_ms
+        return True
+
+    def _maybe_reroute(self, captured_at_ms: int | None) -> None:
+        """Reroute after `reroute_after_failures` consecutive transmit failures.
+
+        Failure means the radio could not hand the frame to the current hop
+        (`LinkUnavailable`), which on real hardware is the observable symptom of
+        a dead relay: no acknowledgement and no delivery.
+        """
+        if self._consecutive_failures >= self.config.reroute_after_failures:
+            if self._reroute(captured_at_ms):
+                self._consecutive_failures = 0
+
+    def _transmit_pending(self, captured_at_ms: int | None = None) -> None:
         """Send the highest-priority pending frame, retrying within budget.
 
         Called once per tick, so at most one message is attempted per tick. That
@@ -197,12 +243,14 @@ class SensorNode:
             return
 
         try:
-            self.transport.transmit(self.config.next_hop, pending.frame.to_bytes())
+            self.transport.transmit(self.active_hop, pending.frame.to_bytes())
         except LinkUnavailable:
             # The radio refused the frame; it was never put on the wire, so this
             # is not an attempt and no budget is consumed. The message stays
             # queued for the next tick.
             self.stats.packets_dropped_link_unavailable += 1
+            self._consecutive_failures += 1
+            self._maybe_reroute(captured_at_ms)
             return
         except FrameError:
             self.stats.packets_failed_contract += 1
@@ -212,6 +260,10 @@ class SensorNode:
         if pending.attempts > 1:
             self.stats.retransmissions += 1
         self.stats.packets_sent += 1
+        # A successful handoff to the current hop means the route works; the
+        # consecutive-failure counter tracks the hop's health, not the link's
+        # per-frame luck.
+        self._consecutive_failures = 0
 
     def _handle_acks(self) -> None:
         """Consume acknowledgement frames addressed to this node."""
@@ -248,7 +300,7 @@ class SensorNode:
                 else:
                     self.stats.packets_refused_queue_full += 1
 
-        self._transmit_pending()
+        self._transmit_pending(captured_at_ms)
         self.stats.packets_evicted_for_priority = self.queue.evicted_for_priority
         return queued
 
