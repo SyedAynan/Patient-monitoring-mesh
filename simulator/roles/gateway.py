@@ -57,32 +57,24 @@ class Gateway:
     accepted_order: list[tuple[str, int]] = field(default_factory=list)
 
     def _send_ack(self, frame: Frame) -> None:
-        """Acknowledge a message back toward its original sender."""
+        """Acknowledge a message back along the path it actually arrived on.
+
+        `last_hop` records which relay forwarded the frame — the radio-level fact
+        of "which peer sent this to me" — so the ack returns to the relay that is
+        demonstrably reachable, not the one the gateway guesses is in use.
+        """
         ack = Frame.acknowledgement(
             source=self.gateway_id,
             destination=frame.source,
             acks=frame.message_id,
         )
-        # The ack returns the way the data came: via the relay when one is in use.
-        neighbour = self._ack_neighbour(frame)
+        neighbour = frame.last_hop or frame.source
         try:
             self.transport.transmit(neighbour, ack.to_bytes())
         except LinkUnavailable:
             self.stats.acks_failed_unsent += 1
             return
         self.stats.acks_sent += 1
-
-    def _ack_neighbour(self, frame: Frame) -> str:
-        """Where to send an ack: back toward the relay if this frame came through one.
-
-        A hop count above zero means the frame was forwarded, so the ack goes back
-        to the relay rather than directly to the source.
-        """
-        if frame.hop_count > 0:
-            neighbours = self.transport.neighbours()
-            if neighbours:
-                return neighbours[0]
-        return frame.source
 
     def _accept(self, frame: Frame) -> None:
         try:

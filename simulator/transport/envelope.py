@@ -40,7 +40,7 @@ HOP_LIMIT_EXCEEDED = "HOP_LIMIT_EXCEEDED"
 INVALID_KIND = "INVALID_KIND"
 INVALID_ACKS = "INVALID_ACKS"
 
-HEADER_FIELDS = ("source", "destination", "message_id", "hop_count", "kind", "acks")
+HEADER_FIELDS = ("source", "destination", "message_id", "hop_count", "kind", "acks", "last_hop")
 REQUIRED_HEADER_FIELDS = ("source", "destination", "message_id", "hop_count", "kind")
 
 # Frame kinds. `data` carries a payload; `ack` confirms receipt of a `data`
@@ -75,6 +75,10 @@ class Frame:
     hop_count: int = 0
     kind: str = KIND_DATA
     acks: str | None = None
+    # The endpoint that most recently forwarded this frame. A radio always
+    # knows the peer it received from, so the receiver can reply along the path
+    # the frame actually took rather than guessing. `forwarded_by` sets it.
+    last_hop: str | None = None
 
     def __post_init__(self) -> None:
         _check_endpoint(self.source, "source")
@@ -132,6 +136,7 @@ class Frame:
             hop_count=self.hop_count + 1,
             kind=self.kind,
             acks=self.acks,
+            last_hop=relay_id,
         )
 
     def to_bytes(self) -> bytes:
@@ -144,6 +149,8 @@ class Frame:
         }
         if self.acks is not None:
             header_fields["acks"] = self.acks
+        if self.last_hop is not None:
+            header_fields["last_hop"] = self.last_hop
         header = json.dumps(header_fields, separators=(",", ":"), sort_keys=True).encode("utf-8")
         if len(header) > MAX_HEADER_LENGTH:
             raise FrameError("header exceeds the maximum size", OVERSIZED_HEADER)
@@ -188,6 +195,10 @@ class Frame:
         if hop_count > MAX_HOPS:
             raise FrameError("hop limit exceeded", HOP_LIMIT_EXCEEDED)
 
+        last_hop = header.get("last_hop")
+        if last_hop is not None:
+            _check_endpoint(last_hop, "last_hop")
+
         return cls(
             source=header["source"],
             destination=header["destination"],
@@ -196,6 +207,7 @@ class Frame:
             hop_count=hop_count,
             kind=header["kind"],
             acks=header.get("acks"),
+            last_hop=last_hop,
         )
 
 
