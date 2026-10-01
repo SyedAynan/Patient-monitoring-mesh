@@ -76,8 +76,10 @@ def main() -> int:
         sequences = gateway.sequence_numbers(node.device_id)
         gaps = gateway.missing_sequences(node.device_id)
         print(f"  {node.device_id}: built={node.stats.packets_built} sent={node.stats.packets_sent} "
-              f"accepted={len(packets)} seq={sequences[:3]}{'...' if len(sequences) > 3 else ''} "
-              f"gaps={gaps}")
+              f"acknowledged={node.stats.packets_acknowledged} "
+              f"retries={node.stats.retransmissions} "
+              f"exhausted={node.stats.packets_failed_retry_exhausted} "
+              f"accepted={len(packets)} gaps={gaps}")
     print()
     print("Network accounting")
     print(f"  transmitted={stats.transmitted} delivered={stats.delivered} dropped={stats.dropped} "

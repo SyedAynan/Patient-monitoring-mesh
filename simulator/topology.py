@@ -32,6 +32,7 @@ from simulator.sensing.sources import (  # noqa: E402
 from simulator.transport import SimulatedMedium  # noqa: E402
 
 RELAY_ID = "relay-01"
+RELAY2_ID = "relay-02"
 GATEWAY_ID = "gateway-01"
 
 # Patient profiles used by `build_standard_mesh`. Each entry is
@@ -58,6 +59,7 @@ class Mesh:
     relay: RelayNode
     gateway: Gateway
     samples_per_packet: int = 5
+    relay2: RelayNode | None = None
 
     def sensor_nodes(self) -> list[SensorNode]:
         return list(self.nodes)
@@ -68,23 +70,28 @@ class Mesh:
                 return node
         raise KeyError(device_id)
 
+    def relays(self) -> list[RelayNode]:
+        return [self.relay] + ([self.relay2] if self.relay2 is not None else [])
+
     def tick(self, captured_at_ms: int) -> None:
         """One full round, ordering the steps so an ack returns within it.
 
         1. Nodes read their inbox (acks from the previous round), sample, queue,
            and transmit one frame each.
-        2. The relay forwards those frames onward to the gateway.
+        2. The relays forward those frames onward to the gateway.
         3. The gateway accepts them and sends acks back toward the relay.
-        4. The relay carries those acks home to the nodes.
+        4. The relays carry those acks home to the nodes.
 
         Step 4 is what lets a node observe its acknowledgement on the next tick
         instead of the one after, which keeps retry timing tight and observable.
         """
         for node in self.nodes:
             node.tick(captured_at_ms)
-        self.relay.tick()
+        for relay in self.relays():
+            relay.tick()
         self.gateway.tick()
-        self.relay.tick()
+        for relay in self.relays():
+            relay.tick()
 
 
 def build_standard_mesh(
@@ -97,12 +104,19 @@ def build_standard_mesh(
     duplication_rate: float = 0.0,
     reorder_rate: float = 0.0,
     use_relay: bool = True,
+    relay_buffer_capacity: int = 0,
+    two_relay: bool = False,
     sources: dict[str, VitalSource] | None = None,
 ) -> Mesh:
     """Build a mesh with `patient_count` patients (2 to 5).
 
     Fault rates default to zero so delivery tests are deterministic and complete;
     failure tests turn them on explicitly.
+
+    `two_relay=True` adds a second relay and gives every node an alternate hop,
+    which is what makes relay failure survivable (Phase 4). `relay_buffer_capacity`
+    enables store-and-forward on the primary relay; zero keeps the Phase 3
+    drop-and-count behaviour.
     """
     if not 2 <= patient_count <= len(PATIENT_PROFILES):
         raise ValueError(f"patient_count must be between 2 and {len(PATIENT_PROFILES)}")
@@ -124,6 +138,7 @@ def build_standard_mesh(
     for index, (device_id, patient_id, factory, _label) in enumerate(PATIENT_PROFILES[:patient_count]):
         medium.register(device_id)
         next_hop = RELAY_ID if use_relay else GATEWAY_ID
+        alternate_hop = RELAY2_ID if (use_relay and two_relay) else None
         source = (sources or {}).get(device_id) or factory(seed + index)
         nodes.append(
             SensorNode(
@@ -132,6 +147,7 @@ def build_standard_mesh(
                     patient_id=patient_id,
                     gateway_id=GATEWAY_ID,
                     next_hop=next_hop,
+                    alternate_hop=alternate_hop,
                     samples_per_packet=samples_per_packet,
                 ),
                 source=source,
@@ -140,16 +156,27 @@ def build_standard_mesh(
         )
         # Sensor -> relay (or direct to the gateway when the relay is omitted).
         medium.connect(device_id, next_hop)
-
-    if use_relay:
-        medium.connect(RELAY_ID, GATEWAY_ID)
+        if alternate_hop is not None:
+            medium.connect(device_id, alternate_hop)
 
     relay = RelayNode(
         relay_id=RELAY_ID,
         next_hop=GATEWAY_ID,
         transport=medium.transport(RELAY_ID),
         downstream=frozenset(node.device_id for node in nodes) if use_relay else frozenset(),
+        buffer_capacity=relay_buffer_capacity,
     )
+
+    relay2: RelayNode | None = None
+    if two_relay:
+        medium.register(RELAY2_ID)
+        relay2 = RelayNode(
+            relay_id=RELAY2_ID,
+            next_hop=GATEWAY_ID,
+            transport=medium.transport(RELAY2_ID),
+            downstream=frozenset(node.device_id for node in nodes),
+        )
+        medium.connect(RELAY2_ID, GATEWAY_ID)
 
     return Mesh(
         medium=medium,
@@ -157,6 +184,7 @@ def build_standard_mesh(
         relay=relay,
         gateway=gateway,
         samples_per_packet=samples_per_packet,
+        relay2=relay2,
     )
 
 

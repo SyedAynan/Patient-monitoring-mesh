@@ -1,8 +1,8 @@
 # Project Memory
 
-**Last updated:** 2026-09-30
-**Current phase:** Phase 2 — Single-node sensing and simulator contract (complete)
-**Next phase:** Phase 3 — Local transport and prioritized delivery
+**Last updated:** 2026-10-01
+**Current phase:** Phase 3 — Local transport and prioritized delivery (complete)
+**Next phase:** Phase 4 — Resilient routing and store-and-forward
 
 ## Completed
 
@@ -54,6 +54,19 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
   without stopping.
 - Same seed reproduces a run exactly.
 
+### Phase 3 (complete as of 2026-10-01)
+
+- `Frame` envelope extended with `kind` (`data`/`ack`) and `acks`; acks ride the
+  same envelope and the relay returns them downstream.
+- `roles/priority.py`: bounded `PriorityQueue` (critical-first, evicts routine for
+  critical, counts refusals/evictions) and `RetryPolicy` (bounded attempts).
+- Node: queues built packets, transmits one per tick, consumes acks; sequence
+  number consumed at queue time and reused by retries.
+- Gateway: acks accepted *and* duplicate packets so retry loops terminate.
+- 26 tests in `tests/test_priority_delivery.py`; 105 total, no regressions.
+- Retry benefit measured in-sim: 19%/50%/73% delivery at 1/3/6 attempts under 40%
+  loss (simulated numbers, not evaluation metrics).
+
 ## Important decisions
 
 - No third-party dependencies in Phase 1 or 2; standard library only.
@@ -83,10 +96,11 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 - ESP-NOW's 250-byte payload limit is smaller than this project's
   `MAX_PAYLOAD_LENGTH`; that gap must be resolved (smaller envelope or
   application-level fragmentation) before firmware work starts.
-- No acknowledgement or retry policy exists yet, so a frame lost on the link is
-  simply lost. Phase 3 owns this.
-- No store-and-forward buffering: a packet that cannot be handed to the link is
-  counted and discarded, not retained. Phase 4 owns this.
+- No store-and-forward buffering beyond the node's bounded transmit queue: a
+  message refused at the queue bound is counted, not retained, and an exhausted
+  retry budget drops the message. Phase 4 owns durable buffering and backfill.
+- One relay hop with no alternate path: relay failure is a total outage. Nothing
+  here is a "self-healing mesh".
 - One relay hop with no alternate path: relay failure is a total outage. Nothing
   here is a "self-healing mesh".
 - Packet authentication/encryption is deferred to the security phase.
@@ -98,10 +112,11 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 
 ## Next task
 
-Phase 3 — local transport and prioritized delivery: priority queues so routine
-traffic cannot starve critical alerts, acknowledgements, bounded retries, and
-delivery/latency counters. Do not start Phase 4, the backend, the dashboard, risk
-scoring, or security work before Phase 3 is complete and tested.
+Phase 4 — resilient routing and store-and-forward: durable buffering across
+gateway/relay outage with backfill and dedup on sync, a second relay path so
+relay loss is survivable, reroute-time measurement, and the failure scenarios
+S-02/S-03 from `docs/Evaluation.md`. Do not start the backend, dashboard, risk
+scoring, or security work before Phase 4 is complete and tested.
 
 Physical ESP32/ESP-NOW work stays deferred until hardware is available. Nothing in
 the physical-transport column gets claimed as validated before then.
