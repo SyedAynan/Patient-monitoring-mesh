@@ -166,6 +166,8 @@ def build_standard_mesh(
         downstream=frozenset(node.device_id for node in nodes) if use_relay else frozenset(),
         buffer_capacity=relay_buffer_capacity,
     )
+    if use_relay:
+        medium.connect(RELAY_ID, GATEWAY_ID)
 
     relay2: RelayNode | None = None
     if two_relay:
