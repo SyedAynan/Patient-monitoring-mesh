@@ -116,22 +116,14 @@ class PriorityQueue:
 
     def next_to_send(self) -> PendingFrame | None:
         """The highest-priority frame awaiting transmission or retry."""
-        while self._critical:
-            candidate = self._critical[0]
-            if candidate.acked:
-                self._critical.popleft()
-                continue
-            return candidate
-        while self._routine:
-            candidate = self._routine[0]
-            if candidate.acked:
-                self._routine.popleft()
-                continue
-            return candidate
+        if self._critical:
+            return self._critical[0]
+        if self._routine:
+            return self._routine[0]
         return None
 
     def acknowledge(self, message_id: str) -> bool:
-        """Mark a message acknowledged. Returns False if it was not pending.
+        """Remove a message after acknowledgement. Returns False if not pending.
 
         A duplicate acknowledgement is not an error: retries make it normal, and
         it must never remove a second queued message.
@@ -139,9 +131,7 @@ class PriorityQueue:
         for queue in (self._critical, self._routine):
             for pending in queue:
                 if pending.message_id == message_id:
-                    if pending.acked:
-                        return False
-                    pending.acked = True
+                    queue.remove(pending)
                     return True
         return False
 
