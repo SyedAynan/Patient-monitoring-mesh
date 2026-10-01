@@ -196,20 +196,21 @@ class SensorNode:
             self.queue.discard(pending)
             return
 
-        pending.attempts += 1
-        if pending.attempts > 1:
-            self.stats.retransmissions += 1
         try:
             self.transport.transmit(self.config.next_hop, pending.frame.to_bytes())
         except LinkUnavailable:
-            # The radio refused the frame; it was never put on the wire. Count it
-            # and keep the message queued for the next attempt.
+            # The radio refused the frame; it was never put on the wire, so this
+            # is not an attempt and no budget is consumed. The message stays
+            # queued for the next tick.
             self.stats.packets_dropped_link_unavailable += 1
             return
         except FrameError:
             self.stats.packets_failed_contract += 1
             self.queue.discard(pending)
             return
+        pending.attempts += 1
+        if pending.attempts > 1:
+            self.stats.retransmissions += 1
         self.stats.packets_sent += 1
 
     def _handle_acks(self) -> None:
@@ -228,15 +229,9 @@ class SensorNode:
                 # A duplicate ack is expected under retries, not an error.
                 self.stats.acks_ignored += 1
 
-    def _drain_acknowledged(self) -> None:
-        for pending in self.queue.pending_messages():
-            if pending.acked:
-                self.queue.discard(pending)
-
     def tick(self, captured_at_ms: int) -> bool:
         """One sampling instant. Returns True when a new packet was queued."""
         self._handle_acks()
-        self._drain_acknowledged()
         self.sample(captured_at_ms)
 
         queued = False
