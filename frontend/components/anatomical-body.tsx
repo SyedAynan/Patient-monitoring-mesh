@@ -21,14 +21,18 @@ export function AnatomicalBodyHologram({
   temp = 36.6,
   rr = 16,
 }: AnatomicalBodyProps) {
+  // Format patient ID dynamically: 'patient-01' -> 'P-0001'
   const displayId = patientId.startsWith('P-')
     ? patientId
     : `P-000${patientId.replace('patient-0', '').replace('patient-', '')}`
 
+  // Dynamic heart pulse rate based on live heart rate
+  const pulseDuration = `${(60 / Math.max(40, hr)).toFixed(2)}s`
+
   return (
     <div className="flex flex-col h-full justify-between rounded-3xl border border-cyan-500/25 bg-gradient-to-b from-[#030e26] via-[#020817] to-[#01040f] p-5 sm:p-6 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
       {/* ==================================================================== */}
-      {/* 1. Header: Top-Left Patient Details */}
+      {/* 1. Header: Top-Left Patient Details (Dynamic HTML) */}
       {/* ==================================================================== */}
       <div className="mb-4 border-b border-white/10 pb-3.5">
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">PATIENT DETAIL</p>
@@ -41,20 +45,22 @@ export function AnatomicalBodyHologram({
       {/* ==================================================================== */}
       <div className="my-2 grid grid-cols-1 md:grid-cols-[1.15fr_1fr] items-center gap-5">
         
-        {/* FULL-BODY HOLOGRAPHIC HUMAN DIGITAL TWIN */}
-        <div className="relative flex flex-col items-center justify-center py-4 px-2 overflow-hidden rounded-2xl bg-cyan-950/15 border border-cyan-500/15 shadow-[inset_0_0_30px_rgba(56,189,248,0.05)]">
-          {/* Soft Background Neon Cyan Aura Glow */}
+        {/* HOLOGRAPHIC DIGITAL TWIN HUMAN VISUALIZATION AREA */}
+        <div className="relative flex flex-col items-center justify-center py-5 px-3 overflow-hidden rounded-2xl bg-cyan-950/15 border border-cyan-500/15 shadow-[inset_0_0_30px_rgba(56,189,248,0.06)]">
+          
+          {/* Subtle Background Neon Cyan Aura Glow */}
           <div className="absolute inset-0 m-auto size-48 rounded-full bg-cyan-500/10 blur-2xl animate-pulse" />
 
-          {/* Animated Vertical Scan Line Sweep */}
+          {/* Animated Vertical Scanning Beam Sweep */}
           <div
-            className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent pointer-events-none animate-pulse"
+            className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent pointer-events-none animate-pulse"
             style={{
-              top: '30%',
-              boxShadow: '0 0 15px rgba(56, 189, 248, 0.8)',
+              top: '35%',
+              boxShadow: '0 0 12px rgba(56, 189, 248, 0.9)',
             }}
           />
 
+          {/* Transparent Holographic Human Digital Twin SVG */}
           <svg
             width="150"
             height="240"
@@ -71,13 +77,13 @@ export function AnatomicalBodyHologram({
                 <stop offset="100%" stopColor="#0369a1" stopOpacity="0.6" />
               </linearGradient>
 
-              {/* Wireframe Internal Grid Pattern */}
+              {/* Fine Anatomical Wireframe Grid Pattern */}
               <pattern id="humanGrid" width="6" height="6" patternUnits="userSpaceOnUse">
                 <path d="M 6 0 L 0 0 0 6" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="0.5" />
               </pattern>
             </defs>
 
-            {/* ANATOMICALLY RECOGNIZABLE FULL HUMAN BODY SILHOUETTE */}
+            {/* Anatomically Recognizable Full-Body Human Silhouette */}
             <g opacity="0.95">
               {/* Head & Cranium */}
               <path
@@ -155,9 +161,23 @@ export function AnatomicalBodyHologram({
 
             {/* INTEGRATED PULSING ANATOMICAL HEART MARKER (LEFT CHEST) */}
             <g transform="translate(63, 72)">
-              {/* Soft Pink/Red Heart Aura Pulse */}
-              <circle cx="0" cy="0" r="10" fill="#f43f5e" className="animate-ping opacity-60" />
-              <circle cx="0" cy="0" r="6" fill="#f43f5e" className="animate-pulse" />
+              {/* Soft Pink/Red Heart Pulse Aura */}
+              <circle
+                cx="0"
+                cy="0"
+                r="10"
+                fill="#f43f5e"
+                className="animate-ping opacity-60"
+                style={{ animationDuration: pulseDuration }}
+              />
+              <circle
+                cx="0"
+                cy="0"
+                r="6"
+                fill="#f43f5e"
+                className="animate-pulse"
+                style={{ animationDuration: pulseDuration }}
+              />
               {/* Vector Heart Icon */}
               <path
                 d="M 0 -3 C -2.5 -6, -6 -4, -6 -1 C -6 3, 0 6, 0 8.5 C 0 6, 6 3, 6 -1 C 6 -4, 2.5 -6, 0 -3 Z"
@@ -179,13 +199,13 @@ export function AnatomicalBodyHologram({
           </svg>
         </div>
 
-        {/* VITAL SIGNS VERTICAL STACK */}
+        {/* VITAL SIGNS VERTICAL STACK (DYNAMIC HTML REACT ELEMENTS) */}
         <div className="flex flex-col gap-3">
-          {/* 1. Heart Rate (HR) */}
+          {/* 1. HR — Heart Rate */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-3">
               <span className="grid size-9 place-items-center rounded-full border border-rose-500/30 bg-rose-500/15 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)]">
-                <Heart className="size-4 animate-pulse fill-rose-500/30" />
+                <Heart className="size-4 animate-pulse fill-rose-500/30" style={{ animationDuration: pulseDuration }} />
               </span>
               <div>
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">HR</span>
@@ -198,7 +218,7 @@ export function AnatomicalBodyHologram({
             </div>
           </div>
 
-          {/* 2. SpO2 */}
+          {/* 2. SpO₂ — Oxygen Saturation */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-3">
               <span className="grid size-9 place-items-center rounded-full border border-cyan-500/30 bg-cyan-500/15 text-cyan-300 shadow-[0_0_12px_rgba(56,189,248,0.3)]">
@@ -215,7 +235,7 @@ export function AnatomicalBodyHologram({
             </div>
           </div>
 
-          {/* 3. Respiratory Rate (RR) */}
+          {/* 3. RR — Respiration Rate */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-3">
               <span className="grid size-9 place-items-center rounded-full border border-blue-500/30 bg-blue-500/15 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.3)]">
@@ -232,7 +252,7 @@ export function AnatomicalBodyHologram({
             </div>
           </div>
 
-          {/* 4. Temperature (TEMP) */}
+          {/* 4. TEMP — Body Temp */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="grid size-9 place-items-center rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]">
@@ -252,7 +272,7 @@ export function AnatomicalBodyHologram({
       </div>
 
       {/* ==================================================================== */}
-      {/* 3. Bottom Section: Dedicated ECG Monitoring Panel */}
+      {/* 3. Bottom Section: Dedicated ECG Monitoring Panel (Dynamic HTML & Canvas) */}
       {/* ==================================================================== */}
       <div className="mt-4 rounded-2xl border border-teal-500/25 bg-[#010612]/90 p-3.5 shadow-[inset_0_0_20px_rgba(20,184,166,0.08)]">
         <div className="flex items-center justify-between text-xs mb-2">
