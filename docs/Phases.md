@@ -9,9 +9,11 @@
   conformance fixtures, feasibility spike). Phase 2 — simulated sensing pipeline
   (sources, filtering, node/relay/gateway roles, abstract transport). Phase 3 —
   local transport and prioritized delivery (ack frame, priority queue, bounded
-  retries, gateway acks).
-- **CURRENT PHASE:** Phase 3 complete; awaiting phase-gate review
-- **NEXT PHASE:** Phase 4 — Resilient routing and store-and-forward
+  retries, gateway acks). Phase 4 — resilient routing and store-and-forward
+  (alternate relay, failure-triggered reroute, relay buffering with backfill,
+  failure-scenario harness).
+- **CURRENT PHASE:** Phase 4 complete; awaiting phase-gate review
+- **NEXT PHASE:** Phase 5 — Backend persistence and real-time dashboard
 - **DEFERRED:** physical ESP32/ESP-NOW validation, until hardware is available.
   Deferred by explicit decision on 2026-09-29. No radio result may be claimed
   before it runs on real boards.
@@ -24,8 +26,8 @@ Each phase must be completed, tested, and documented before the next begins. Do 
 | --- | --- | --- |
 | 1 — Foundation | Complete | Contract, fixtures, validator, feasibility spike. Physical gate deferred. |
 | 2 — Sensing & simulator | Complete | Simulated pipeline over an abstract transport. |
-| 3 — Local transport | Complete | Priority queue, acks, bounded retries. 105 tests pass. |
-| 4 — Resilient routing | Not started | Store-and-forward, alternate paths. |
+| 3 — Local transport | Complete | Priority queue, acks, bounded retries. |
+| 4 — Resilient routing | Complete | Reroute, store-and-forward, backfill. 120 tests pass. |
 | 5 — Backend & dashboard | Not started | |
 | 6 — Edge intelligence | Not started | |
 | 7 — Security | Not started | |
@@ -232,6 +234,29 @@ Network topology/status view; recovery and packet-gap visualization.
 - A planned failure scenario demonstrates continued local operation.
 - Buffered data returns without duplicates.
 - Reroute time and recovery completeness are measured.
+
+### Status: complete (simulator side) — 2026-10-02
+- Nodes carry an optional `alternate_hop`; after `reroute_after_failures`
+  consecutive transmit failures they switch, recording the route change and its
+  timestamp (the M-05 event).
+- The relay gained a bounded store-and-forward buffer (`buffer_capacity`, default
+  0 = Phase 3 drop-and-count). Uplink loss buffers upstream frames; recovery
+  backfills FIFO. Retransmissions are deduped in the buffer so a retrying sender
+  cannot crowd it; the gateway's `(device_id, sequence_number)` key keeps backfill
+  from creating duplicate records.
+- The envelope carries `last_hop` — the radio-level fact of which peer delivered
+  the frame — so acks return along the path actually used, not a guess. This is
+  what makes rerouted delivery self-sustaining.
+- Topology can build a two-relay mesh (`two_relay=True`); every node gets the
+  second relay as its alternate hop.
+- `tools/resilience_demo.py` runs S-02 (relay power-off; reroute at 2 s, delivery
+  continues via relay-02) and S-03 (gateway interruption; 15/15 buffered frames
+  backfilled, 100% recovery completeness, zero duplicate records). These are
+  scenario demonstrations on a simulated link, not evaluation metrics: the
+  recorded runs that turn them into M-05/M-06 figures are Phase 8 work.
+- 15 tests in `tests/test_resilience.py`; 120 total, no regressions. The suite
+  also asserts the honest limits: a single-path mesh does *not* survive relay
+  loss, and buffering disabled keeps drop-and-count behaviour.
 
 ---
 
