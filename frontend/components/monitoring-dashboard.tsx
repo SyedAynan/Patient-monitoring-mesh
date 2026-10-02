@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Activity, AlertTriangle, Battery, BatteryCharging, Bell, Check, ChevronRight, Clock,
   Cpu, Droplets, Heart, HeartPulse, LayoutDashboard, Layers, LineChart, Lungs, Menu, Network, Radio, RefreshCw, Search,
-  ShieldCheck, Signal, Thermometer, User, Wifi, Wind, X, Zap, FileText, Settings,
+  ShieldCheck, Signal, Thermometer, User, Volume2, VolumeX, Wifi, Wind, X, Zap, FileText, Settings,
 } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import {
   type Device, type Measurement, type Alert as ApiAlert, type NetworkMetrics, type NetworkEvent,
 } from '@/lib/api'
 import { subscribe, onConnectionStatus, type RealtimeMessage } from '@/lib/realtime'
+import { monitorAudio } from '@/lib/audio'
 import { ECGWaveformCanvas } from './ecg-canvas'
 import { RiskScoreGauge } from './risk-gauge'
 import { AnatomicalBodyHologram } from './anatomical-body'
@@ -42,7 +43,6 @@ type Patient = {
   riskScore: number
 }
 
-type MetricKey = 'hr' | 'spo2' | 'temp'
 type HistoryPoint = { time: string; hr: number; spo2: number; temp: number; rr: number }
 
 const PATIENT_META: Record<string, { name: string; room: string; age: number; gender: string; color: string }> = {
@@ -67,7 +67,6 @@ function deviceToPatient(dev: Device, latestMeasurement?: Measurement): Patient 
   const temp = latestMeasurement ? Number(latestMeasurement.temperature_c.toFixed(1)) : 36.8
   const rr = latestMeasurement ? Math.round(14 + (hr % 6)) : 16
 
-  // Calculate simple risk score
   let riskScore = 12
   if (hr > 110 || hr < 55) riskScore += 18
   if (spo2 < 95) riskScore += 22
@@ -109,7 +108,7 @@ function measurementsToHistory(items: Measurement[]): HistoryPoint[] {
 }
 
 // ---------------------------------------------------------------------------
-// Main CareNet Dashboard
+// Main CareNet Dashboard with Audio FX
 // ---------------------------------------------------------------------------
 
 export default function MonitoringDashboard() {
@@ -121,8 +120,8 @@ export default function MonitoringDashboard() {
   const [networkMetrics, setNetworkMetrics] = useState<NetworkMetrics | null>(null)
   const [search, setSearch] = useState('')
   const [history, setHistory] = useState<Record<string, HistoryPoint[]>>({})
-  const [lastSync, setLastSync] = useState<string>('—')
   const [currentTime, setCurrentTime] = useState<string>('')
+  const [soundEnabled, setSoundEnabled] = useState(false)
 
   const latestMeasurements = useRef<Record<string, Measurement>>({})
   const selected = patients.find(p => p.id === selectedId) ?? patients[0]
@@ -135,6 +134,11 @@ export default function MonitoringDashboard() {
     }, 1000)
     return () => clearInterval(timer)
   }, [])
+
+  const toggleSound = () => {
+    const newState = monitorAudio.toggleSound()
+    setSoundEnabled(newState)
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -151,7 +155,6 @@ export default function MonitoringDashboard() {
       setPatients(newPatients)
       setAlerts(alertRes.items)
       setNetworkMetrics(netRes)
-      setLastSync(new Date().toLocaleTimeString())
     } catch {
       // Silently handle
     }
@@ -204,6 +207,9 @@ export default function MonitoringDashboard() {
         setPatients(prev => prev.map(p => {
           if (p.id !== m.patient_id) return p
           const needsAttention = m.heart_rate_bpm > 120 || m.spo2_percent < 94
+          if (needsAttention) {
+            monitorAudio.playAlertAlarm('warning')
+          }
           return {
             ...p,
             hr: Math.round(m.heart_rate_bpm),
@@ -216,11 +222,11 @@ export default function MonitoringDashboard() {
             status: needsAttention ? 'attention' : 'online',
           }
         }))
-        setLastSync(new Date().toLocaleTimeString())
       }
       if (msg.type === 'alert') {
         const a = msg.payload as ApiAlert
         setAlerts(prev => [a, ...prev.filter(x => x.alert_id !== a.alert_id)])
+        monitorAudio.playAlertAlarm(a.severity === 'critical' ? 'critical' : 'warning')
       }
     })
     const unsubStatus = onConnectionStatus(setConnected)
@@ -229,9 +235,20 @@ export default function MonitoringDashboard() {
 
   const handleAcknowledgeAlert = async (alertId: string) => {
     try {
+      monitorAudio.playAckSound()
       const updated = await apiAcknowledgeAlert(alertId)
       setAlerts(prev => prev.map(a => a.alert_id === alertId ? updated : a))
     } catch { /* ignore */ }
+  }
+
+  const handleSelectPatient = (id: string) => {
+    monitorAudio.playUiClick()
+    setSelectedId(id)
+  }
+
+  const handleTabChange = (tab: typeof activeTab) => {
+    monitorAudio.playUiClick()
+    setActiveTab(tab)
   }
 
   const filteredPatients = patients.filter(p => `${p.name} ${p.id} ${p.room}`.toLowerCase().includes(search.toLowerCase()))
@@ -243,7 +260,7 @@ export default function MonitoringDashboard() {
       <div className="mx-auto max-w-[1720px] rounded-3xl border border-cyan-500/25 bg-[#020713]/90 shadow-[0_0_100px_rgba(0,0,0,0.95)] backdrop-blur-2xl p-5 sm:p-6">
         
         {/* ==================================================================== */}
-        {/* CareNet IoT Top Navigation Header Bar */}
+        {/* CareNet IoT Top Navigation Header Bar with Audio Controls */}
         {/* ==================================================================== */}
         <header className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-cyan-500/15 pb-4">
           <div className="flex items-center gap-3">
@@ -262,7 +279,7 @@ export default function MonitoringDashboard() {
             {(['Overview', 'Patients', 'Devices', 'Analytics', 'Settings'] as const).map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => handleTabChange(tab)}
                 className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
                   activeTab === tab
                     ? 'border border-cyan-400/40 bg-cyan-500/20 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.2)]'
@@ -274,8 +291,22 @@ export default function MonitoringDashboard() {
             ))}
           </nav>
 
-          {/* Top Right Live Time & Status */}
+          {/* Top Right Live Time, Audio Toggle & Status */}
           <div className="flex items-center gap-3">
+            {/* Speaker Sound Toggle Button */}
+            <button
+              onClick={toggleSound}
+              className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+                soundEnabled
+                  ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+                  : 'border-white/10 bg-white/5 text-slate-400 hover:text-slate-200'
+              }`}
+              title={soundEnabled ? 'Hospital Sound FX Enabled (Click to Mute)' : 'Enable Hospital Sound FX'}
+            >
+              {soundEnabled ? <Volume2 className="size-4 animate-pulse text-cyan-300" /> : <VolumeX className="size-4" />}
+              <span>{soundEnabled ? 'Sound ON' : 'Sound Muted'}</span>
+            </button>
+
             <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
               <span className="size-2 rounded-full bg-emerald-400 animate-ping" /> Live
             </div>
@@ -319,7 +350,7 @@ export default function MonitoringDashboard() {
                 return (
                   <button
                     key={p.id}
-                    onClick={() => setSelectedId(p.id)}
+                    onClick={() => handleSelectPatient(p.id)}
                     className={`flex items-center justify-between rounded-xl border p-3 text-left transition-all ${
                       isSelected
                         ? 'border-cyan-400/60 bg-cyan-500/15 shadow-[0_0_25px_rgba(34,211,238,0.15)]'
@@ -512,9 +543,10 @@ export default function MonitoringDashboard() {
                         </div>
                       )}
                     </div>
-                    {/* Continuous Heartbeat Sparkline */}
+
+                    {/* Continuous Heartbeat Sparkline with QRS Heartbeat Audio Beeps */}
                     <div className="pt-2">
-                      <ECGWaveformCanvas height={28} color="#10b981" />
+                      <ECGWaveformCanvas height={28} color="#10b981" hr={selected.hr} enableBeep={soundEnabled} />
                     </div>
                   </div>
                 </div>

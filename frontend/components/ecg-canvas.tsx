@@ -1,9 +1,21 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { monitorAudio } from '@/lib/audio'
 
-export function ECGWaveformCanvas({ height = 48, color = '#22c55e' }: { height?: number; color?: string }) {
+export function ECGWaveformCanvas({
+  height = 48,
+  color = '#22c55e',
+  hr = 72,
+  enableBeep = false,
+}: {
+  height?: number
+  color?: string
+  hr?: number
+  enableBeep?: boolean
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const lastPeakRef = useRef<number>(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -30,7 +42,15 @@ export function ECGWaveformCanvas({ height = 48, color = '#22c55e' }: { height?:
       const period = 120
       const pos = (x + offset) % period
 
-      // Flat line with P-Q-R-S-T wave pulse
+      // QRS Peak Detection for Heartbeat Sound Playback
+      if (enableBeep && pos >= 49 && pos <= 51) {
+        const now = Date.now()
+        if (now - lastPeakRef.current > 400) {
+          lastPeakRef.current = now
+          monitorAudio.playHeartbeatBeep(hr)
+        }
+      }
+
       if (pos > 30 && pos < 40) {
         // P wave
         return mid - Math.sin(((pos - 30) / 10) * Math.PI) * (h * 0.12)
@@ -47,7 +67,7 @@ export function ECGWaveformCanvas({ height = 48, color = '#22c55e' }: { height?:
         // T wave
         return mid - Math.sin(((pos - 65) / 17) * Math.PI) * (h * 0.18)
       }
-      return mid + (Math.random() - 0.5) * 1.5 // Subtle noise
+      return mid + (Math.random() - 0.5) * 1.5
     }
 
     function draw() {
@@ -80,7 +100,7 @@ export function ECGWaveformCanvas({ height = 48, color = '#22c55e' }: { height?:
       cancelAnimationFrame(animId)
       window.removeEventListener('resize', handleResize)
     }
-  }, [height, color])
+  }, [height, color, hr, enableBeep])
 
   return <canvas ref={canvasRef} className="w-full" style={{ height: `${height}px` }} />
 }
