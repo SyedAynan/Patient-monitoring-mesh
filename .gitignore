@@ -10,3 +10,6 @@ env/
 .idea/
 *.log
 .data/
+node_modules/
+.next/
+out/

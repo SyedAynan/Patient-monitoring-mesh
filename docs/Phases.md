@@ -12,8 +12,8 @@
   retries, gateway acks). Phase 4 — resilient routing and store-and-forward
   (alternate relay, failure-triggered reroute, relay buffering with backfill,
   failure-scenario harness).
-- **CURRENT PHASE:** Phase 4 complete; awaiting phase-gate review
-- **NEXT PHASE:** Phase 5 — Backend persistence and real-time dashboard
+- **CURRENT PHASE:** Phase 5 — Backend persistence and real-time dashboard (in progress)
+- **NEXT PHASE:** Phase 6 — Edge intelligence
 - **DEFERRED:** physical ESP32/ESP-NOW validation, until hardware is available.
   Deferred by explicit decision on 2026-09-29. No radio result may be claimed
   before it runs on real boards.
@@ -28,7 +28,7 @@ Each phase must be completed, tested, and documented before the next begins. Do 
 | 2 — Sensing & simulator | Complete | Simulated pipeline over an abstract transport. |
 | 3 — Local transport | Complete | Priority queue, acks, bounded retries. |
 | 4 — Resilient routing | Complete | Reroute, store-and-forward, backfill. 120 tests pass. |
-| 5 — Backend & dashboard | Not started | |
+| 5 — Backend & dashboard | **In progress** | FastAPI backend + Next.js dashboard connected to simulator. |
 | 6 — Edge intelligence | Not started | |
 | 7 — Security | Not started | |
 | 8 — Evaluation & demo | Not started | |
