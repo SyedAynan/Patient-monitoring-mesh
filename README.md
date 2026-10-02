@@ -7,7 +7,7 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Progress-Phase%203%20Complete-blue.svg)](#-current-status)
+[![Phase](https://img.shields.io/badge/Progress-Phase%204%20Complete-blue.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
@@ -47,8 +47,8 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 
 ## <img src="./assets/rocket_icon.png" width="24" align="center"> Current Status
 
-### Progress: Phase 3 Complete (of 8)
-Three phases are done, verified by 105 passing tests:
+### Progress: Phase 4 Complete (of 8)
+Four phases are done, verified by 120 passing tests:
 
 - **Phase 1 (Foundation) — complete:** versioned packet schema, authoritative
   validator with stable error codes, language-neutral conformance fixtures, and a
@@ -59,16 +59,17 @@ Three phases are done, verified by 105 passing tests:
 - **Phase 3 (Local transport & prioritized delivery) — complete:** bounded
   critical-first priority queues, an acknowledgement frame the relay returns to
   senders, and bounded retries that measurably raise delivery under loss.
+- **Phase 4 (Resilient routing & store-and-forward) — complete:** an alternate
+  relay with failure-triggered reroute, a bounded relay buffer that backfills
+  after a gateway interruption, and a failure-scenario harness (`tools/resilience_demo.py`).
 
 **Not yet built** — do not mistake the simulator for these:
 
-- **Phase 4 (store-and-forward, resilient routing):** the transmit queue is
-  bounded, but there is no durable buffering or backfill, and there is one relay
-  hop with no alternate path, so relay loss is still a full outage. Nothing here
-  is a "self-healing mesh", and the project will not claim that until Phase 4
-  measures it.
 - **Phases 5–8:** no backend, database, dashboard, risk scoring, or security work
   has started.
+- Resilience claims are *simulated*: reroute-in-2-seconds and 100% recovery
+  completeness are demo observations on one clock, not measured radio results.
+  The recorded experiments that turn them into evaluation metrics are Phase 8.
 
 > **⚠️ Physical ESP32 / ESP-NOW validation: DEFERRED until hardware is available.**
 > No board has been flashed and no radio has been tested. `simulator/transport/espnow.py`

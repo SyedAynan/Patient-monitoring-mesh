@@ -1,8 +1,8 @@
 # Project Memory
 
-**Last updated:** 2026-10-01
-**Current phase:** Phase 3 — Local transport and prioritized delivery (complete)
-**Next phase:** Phase 4 — Resilient routing and store-and-forward
+**Last updated:** 2026-10-02
+**Current phase:** Phase 4 — Resilient routing and store-and-forward (complete)
+**Next phase:** Phase 5 — Backend persistence and real-time dashboard
 
 ## Completed
 
@@ -67,6 +67,21 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 - Retry benefit measured in-sim: 19%/50%/73% delivery at 1/3/6 attempts under 40%
   loss (simulated numbers, not evaluation metrics).
 
+### Phase 4 (complete as of 2026-10-02)
+
+- Nodes carry `alternate_hop` and reroute after `reroute_after_failures`
+  consecutive link failures; route changes are counted and timestamped (M-05 event).
+- Relay store-and-forward: bounded `buffer_capacity` (0 = disabled, Phase 3
+  behaviour), FIFO backfill on uplink recovery, in-buffer dedup so retransmissions
+  cannot crowd the buffer.
+- Envelope `last_hop` records the forwarding peer; the gateway acks along the
+  path actually used, which is what keeps rerouted delivery self-sustaining.
+- Two-relay topology via `build_standard_mesh(two_relay=True)`.
+- `tools/resilience_demo.py`: S-02 relay power-off (reroute at 2 s, delivery
+  continues) and S-03 gateway interruption (15/15 backfilled, 100% completeness,
+  zero duplicate records).
+- 15 tests in `tests/test_resilience.py`; 120 total, no regressions.
+
 ## Important decisions
 
 - No third-party dependencies in Phase 1 or 2; standard library only.
@@ -96,13 +111,13 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 - ESP-NOW's 250-byte payload limit is smaller than this project's
   `MAX_PAYLOAD_LENGTH`; that gap must be resolved (smaller envelope or
   application-level fragmentation) before firmware work starts.
-- No store-and-forward buffering beyond the node's bounded transmit queue: a
-  message refused at the queue bound is counted, not retained, and an exhausted
-  retry budget drops the message. Phase 4 owns durable buffering and backfill.
-- One relay hop with no alternate path: relay failure is a total outage. Nothing
-  here is a "self-healing mesh".
-- One relay hop with no alternate path: relay failure is a total outage. Nothing
-  here is a "self-healing mesh".
+- Node-side buffering is still only the bounded transmit queue: a message refused
+  at the queue bound is counted and dropped, and an exhausted retry budget drops
+  the message. Durable *node-side* store-and-forward (FR-06 at the node rather
+  than the relay) is a firmware-phase concern.
+- Rerouting is single-preference (primary then alternate); there is no route
+  discovery or metric-based path choice. "Self-healing mesh" must still not be
+  claimed: what exists is a measured two-path failover on a simulated link.
 - Packet authentication/encryption is deferred to the security phase.
 - Existing untracked `assets/hardware.png` was not modified.
 - Unsolicited files appeared in the working tree during this phase and were not
@@ -112,11 +127,13 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 
 ## Next task
 
-Phase 4 — resilient routing and store-and-forward: durable buffering across
-gateway/relay outage with backfill and dedup on sync, a second relay path so
-relay loss is survivable, reroute-time measurement, and the failure scenarios
-S-02/S-03 from `docs/Evaluation.md`. Do not start the backend, dashboard, risk
-scoring, or security work before Phase 4 is complete and tested.
+Phase 5 — backend persistence and real-time dashboard: FastAPI service, SQLite
+with migrations, measurement/alert persistence with the `(device_id,
+sequence_number)` uniqueness constraint, a realtime stream (WebSocket/SSE), and
+the React + TypeScript dashboard shell. The ingestion path should reuse
+`shared/protocol` as the validation authority and the simulator mesh as its data
+source. Do not start risk scoring or security work before Phase 5 is complete
+and tested.
 
 Physical ESP32/ESP-NOW work stays deferred until hardware is available. Nothing in
 the physical-transport column gets claimed as validated before then.
