@@ -7,7 +7,7 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Progress-Phase%204%20Complete-blue.svg)](#-current-status)
+[![Phase](https://img.shields.io/badge/Progress-Phase%205%20In%20Progress-blue.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
@@ -47,8 +47,8 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 
 ## <img src="./assets/rocket_icon.png" width="24" align="center"> Current Status
 
-### Progress: Phase 4 Complete (of 8)
-Four phases are done, verified by 120 passing tests:
+### Progress: Phase 5 In Progress (of 8)
+Four phases are done (120 passing tests). Phase 5 is actively being built:
 
 - **Phase 1 (Foundation) — complete:** versioned packet schema, authoritative
   validator with stable error codes, language-neutral conformance fixtures, and a
@@ -62,11 +62,14 @@ Four phases are done, verified by 120 passing tests:
 - **Phase 4 (Resilient routing & store-and-forward) — complete:** an alternate
   relay with failure-triggered reroute, a bounded relay buffer that backfills
   after a gateway interruption, and a failure-scenario harness (`tools/resilience_demo.py`).
+- **Phase 5 (Backend & dashboard) — in progress:** FastAPI backend wrapping the
+  simulator mesh with REST + WebSocket APIs. Next.js dashboard with live patient
+  monitoring, 3D mesh visualization, trend charts, alerts, and network status.
+  See [Running the Dashboard](#running-the-dashboard) below.
 
-**Not yet built** — do not mistake the simulator for these:
+**Not yet built:**
 
-- **Phases 5–8:** no backend, database, dashboard, risk scoring, or security work
-  has started.
+- **Phases 6–8:** edge intelligence/risk scoring, security, and evaluation.
 - Resilience claims are *simulated*: reroute-in-2-seconds and 100% recovery
   completeness are demo observations on one clock, not measured radio results.
   The recorded experiments that turn them into evaluation metrics are Phase 8.
