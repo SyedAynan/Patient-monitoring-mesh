@@ -2,6 +2,7 @@
 
 import { Activity, Droplets, Heart, Thermometer, Wind } from 'lucide-react'
 import { ECGWaveformCanvas } from './ecg-canvas'
+import { Hologram3DCanvas } from './hologram-3d-canvas'
 
 interface AnatomicalBodyProps {
   patientId: string
@@ -26,11 +27,10 @@ export function AnatomicalBodyHologram({
     ? patientId
     : `P-000${patientId.replace('patient-0', '').replace('patient-', '')}`
 
-  // Dynamic heart pulse duration based on heart rate bpm
   const pulseDuration = `${(60 / Math.max(40, hr)).toFixed(2)}s`
 
   return (
-    <div className="flex flex-col h-full justify-between rounded-3xl border border-cyan-500/30 bg-gradient-to-b from-[#030e26] via-[#020817] to-[#01040f] p-5 sm:p-6 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
+    <div className="flex flex-col h-full justify-between rounded-3xl border border-cyan-500/25 bg-gradient-to-b from-[#030e26] via-[#020817] to-[#01040f] p-5 sm:p-6 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
       {/* ==================================================================== */}
       {/* 1. Header: Top-Left Patient Details (Dynamic HTML) */}
       {/* ==================================================================== */}
@@ -41,57 +41,22 @@ export function AnatomicalBodyHologram({
       </div>
 
       {/* ==================================================================== */}
-      {/* 2. Main Middle Section: Holographic Human Body & Vital Signs Stack */}
+      {/* 2. Main Middle Section: 3D Holographic Human & Vital Signs Stack */}
       {/* ==================================================================== */}
       <div className="my-2 grid grid-cols-1 md:grid-cols-[1.15fr_1fr] items-center gap-5">
         
-        {/* FULL-BODY HOLOGRAPHIC HUMAN DIGITAL TWIN VISUALIZATION AREA */}
-        <div className="relative flex flex-col items-center justify-center py-4 px-2 overflow-hidden rounded-2xl bg-cyan-950/20 border border-cyan-500/20 shadow-[inset_0_0_35px_rgba(56,189,248,0.08)] min-h-[250px]">
-          
-          {/* Background Soft Neon Cyan Aura Glow */}
-          <div className="absolute inset-0 m-auto size-52 rounded-full bg-cyan-500/15 blur-3xl animate-pulse" />
-
-          {/* Animated Vertical Scanning Line Sweep */}
-          <div
-            className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent pointer-events-none z-20 animate-pulse"
-            style={{
-              top: '38%',
-              boxShadow: '0 0 15px rgba(56, 189, 248, 0.9)',
-            }}
-          />
-
-          {/* Premium Holographic Human Digital Twin Image Asset */}
-          <div className="relative z-10 flex justify-center items-center h-[230px] w-full">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/holographic-human-body.png"
-              alt="Holographic Human Digital Twin"
-              className="h-full w-auto object-contain mix-blend-screen drop-shadow-[0_0_20px_rgba(56,189,248,0.6)]"
-            />
-
-            {/* Dynamic Pulsing Heart Marker Overlay over Anatomical Heart */}
-            <div className="absolute top-[28%] left-[46%] -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
-              <span
-                className="absolute -inset-2 rounded-full bg-rose-500 opacity-75 animate-ping"
-                style={{ animationDuration: pulseDuration }}
-              />
-              <span
-                className="relative grid size-3.5 place-items-center rounded-full bg-rose-500 shadow-[0_0_12px_#f43f5e] animate-pulse"
-                style={{ animationDuration: pulseDuration }}
-              >
-                <Heart className="size-2 text-white fill-white" />
-              </span>
-            </div>
-          </div>
+        {/* REAL 3D HOLOGRAPHIC DIGITAL TWIN (THREE.JS / REACT THREE FIBER) */}
+        <div className="relative flex flex-col items-center justify-center">
+          <Hologram3DCanvas hr={hr} />
         </div>
 
-        {/* VITAL SIGNS VERTICAL STACK (DYNAMIC HTML REACT ELEMENTS) */}
-        <div className="flex flex-col gap-3.5">
+        {/* VITAL SIGNS VERTICAL STACK (100% DYNAMIC HTML REACT ELEMENTS) */}
+        <div className="flex flex-col gap-3">
           {/* 1. HR — Heart Rate */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-3">
               <span className="grid size-9 place-items-center rounded-full border border-rose-500/30 bg-rose-500/15 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)]">
-                <Heart className="size-4 animate-pulse fill-rose-500/30" style={{ animationDuration: pulseDuration }} />
+                <Heart className="size-4 fill-rose-500/30 animate-pulse" style={{ animationDuration: pulseDuration }} />
               </span>
               <div>
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">HR</span>
@@ -169,7 +134,7 @@ export function AnatomicalBodyHologram({
           </span>
         </div>
         
-        {/* ECG Waveform Canvas with Teal Glowing Trace Line */}
+        {/* ECG Waveform Canvas */}
         <div className="relative rounded-lg overflow-hidden border border-teal-500/15 bg-black/80">
           <div
             className="absolute inset-0 opacity-20 pointer-events-none"
