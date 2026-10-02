@@ -1,8 +1,8 @@
 'use client'
 
-import { Activity, Droplets, Heart, Thermometer, Wind } from 'lucide-react'
+import { Droplets, Heart, Thermometer, Wind } from 'lucide-react'
 import { ECGWaveformCanvas } from './ecg-canvas'
-import { Hologram3DCanvas } from './hologram-3d-canvas'
+import { HologramHuman3D } from './hologram-human-3d'
 
 interface AnatomicalBodyProps {
   patientId: string
@@ -27,6 +27,7 @@ export function AnatomicalBodyHologram({
     ? patientId
     : `P-000${patientId.replace('patient-0', '').replace('patient-', '')}`
 
+  // Dynamic heart pulse rate based on live heart rate
   const pulseDuration = `${(60 / Math.max(40, hr)).toFixed(2)}s`
 
   return (
@@ -45,18 +46,16 @@ export function AnatomicalBodyHologram({
       {/* ==================================================================== */}
       <div className="my-2 grid grid-cols-1 md:grid-cols-[1.15fr_1fr] items-center gap-5">
         
-        {/* REAL 3D HOLOGRAPHIC DIGITAL TWIN (THREE.JS / REACT THREE FIBER) */}
-        <div className="relative flex flex-col items-center justify-center">
-          <Hologram3DCanvas hr={hr} />
-        </div>
+        {/* Real-time Interactive 3D Holographic Human Digital Twin (Three.js / R3F) */}
+        <HologramHuman3D hr={hr} spo2={spo2} temp={temp} rr={rr} />
 
-        {/* VITAL SIGNS VERTICAL STACK (100% DYNAMIC HTML REACT ELEMENTS) */}
-        <div className="flex flex-col gap-3">
+        {/* VITAL SIGNS VERTICAL STACK (DYNAMIC HTML REACT ELEMENTS) */}
+        <div className="flex flex-col gap-3 font-sans">
           {/* 1. HR — Heart Rate */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-3">
               <span className="grid size-9 place-items-center rounded-full border border-rose-500/30 bg-rose-500/15 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)]">
-                <Heart className="size-4 fill-rose-500/30 animate-pulse" style={{ animationDuration: pulseDuration }} />
+                <Heart className="size-4 animate-pulse fill-rose-500/30" style={{ animationDuration: pulseDuration }} />
               </span>
               <div>
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">HR</span>
@@ -134,7 +133,7 @@ export function AnatomicalBodyHologram({
           </span>
         </div>
         
-        {/* ECG Waveform Canvas */}
+        {/* ECG Waveform Canvas with Teal Glowing Trace Line */}
         <div className="relative rounded-lg overflow-hidden border border-teal-500/15 bg-black/80">
           <div
             className="absolute inset-0 opacity-20 pointer-events-none"
