@@ -10,117 +10,219 @@ interface AnatomicalBodyProps {
   spo2: number
   temp: number
   rr: number
-  status: string
+  status?: string
 }
 
 export function AnatomicalBodyHologram({
-  patientId = 'P-001',
-  room = 'Room 101 - Bed 1',
-  hr = 72,
-  spo2 = 98,
-  temp = 36.8,
+  patientId = 'P-0001',
+  room = 'Room 101  •  Bed 1',
+  hr = 74,
+  spo2 = 98.1,
+  temp = 36.7,
   rr = 16,
-  status = 'Stable',
 }: AnatomicalBodyProps) {
+  // Format patient ID nicely if passed as patient-01 -> P-0001
+  const displayId = patientId.startsWith('P-')
+    ? patientId
+    : `P-000${patientId.replace('patient-0', '').replace('patient-', '')}`
+
   return (
-    <div className="flex flex-col h-full justify-between rounded-2xl border border-cyan-500/25 bg-[#030917]/85 p-5 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
-      {/* Top Patient Header */}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400">Patient Detail</p>
-        <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">Patient {patientId}</h3>
-        <p className="text-xs text-slate-400 font-mono mt-0.5">{room}</p>
+    <div className="flex flex-col h-full justify-between rounded-3xl border border-cyan-500/25 bg-gradient-to-b from-[#030e26] via-[#020817] to-[#01040f] p-5 sm:p-6 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
+      {/* ==================================================================== */}
+      {/* 1. Header: Top-Left Patient Details */}
+      {/* ==================================================================== */}
+      <div className="mb-4 border-b border-white/10 pb-3.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-400">PATIENT DETAIL</p>
+        <h3 className="text-xl font-bold tracking-tight text-white mt-0.5">Patient {displayId}</h3>
+        <p className="text-xs font-mono text-slate-400 mt-1">{room}</p>
       </div>
 
-      {/* Center 3D Cyan Body Hologram & Vitals Grid */}
-      <div className="my-4 grid grid-cols-2 items-center gap-4">
-        {/* Holographic Cyan Body Wireframe SVG */}
-        <div className="relative flex justify-center py-2">
-          {/* Subtle glowing backdrop circle */}
-          <div className="absolute inset-0 m-auto size-36 rounded-full bg-cyan-500/10 blur-xl animate-pulse" />
+      {/* ==================================================================== */}
+      {/* 2. Main Middle Section: Holographic Human Body & Vital Signs Stack */}
+      {/* ==================================================================== */}
+      <div className="my-2 grid grid-cols-1 md:grid-cols-[1.1fr_1fr] items-center gap-5">
+        
+        {/* HOLOGRAPHIC HUMAN BODY DIGITAL TWIN */}
+        <div className="relative flex flex-col items-center justify-center py-4 px-2 overflow-hidden rounded-2xl bg-cyan-950/10 border border-cyan-500/10">
+          {/* Soft Background Neon Aura Glow */}
+          <div className="absolute inset-0 m-auto size-44 rounded-full bg-cyan-500/10 blur-2xl animate-pulse" />
           
-          <svg width="110" height="210" viewBox="0 0 100 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 drop-shadow-[0_0_15px_rgba(56,189,248,0.4)]">
-            {/* Body Head */}
-            <circle cx="50" cy="22" r="14" stroke="#38bdf8" strokeWidth="2" fill="rgba(56, 189, 248, 0.12)" />
-            {/* Neck */}
-            <path d="M46 36 L54 36 L54 42 L46 42 Z" stroke="#38bdf8" strokeWidth="1.5" fill="rgba(56, 189, 248, 0.2)" />
-            {/* Chest & Torso */}
-            <path d="M30 46 L70 46 L64 115 L36 115 Z" stroke="#38bdf8" strokeWidth="2" fill="rgba(56, 189, 248, 0.1)" />
-            {/* Shoulders & Arms */}
-            <path d="M30 46 L14 75 L18 120 M70 46 L86 75 L82 120" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" />
-            {/* Pelvis & Legs */}
-            <path d="M36 115 L46 190 M64 115 L54 190" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" />
+          <svg
+            width="140"
+            height="230"
+            viewBox="0 0 140 230"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="relative z-10 drop-shadow-[0_0_18px_rgba(56,189,248,0.45)]"
+          >
+            <defs>
+              {/* Holographic Cyan Linear Gradient */}
+              <linearGradient id="holoGradient" x1="70" y1="0" x2="70" y2="210" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.9" />
+                <stop offset="50%" stopColor="#0284c7" stopOpacity="0.75" />
+                <stop offset="100%" stopColor="#0369a1" stopOpacity="0.5" />
+              </linearGradient>
+              
+              {/* Internal Body Wireframe Grid Pattern */}
+              <pattern id="bodyWireframeGrid" width="8" height="8" patternUnits="userSpaceOnUse">
+                <path d="M 8 0 L 0 0 0 8" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="0.5" />
+              </pattern>
+            </defs>
 
-            {/* Glowing Vital Nodes */}
-            {/* Heart Node (Chest) */}
-            <circle cx="44" cy="62" r="4.5" fill="#f43f5e" className="animate-ping opacity-75" />
-            <circle cx="44" cy="62" r="3.5" fill="#f43f5e" />
+            {/* Anatomical Human Body Silhouette */}
+            <g opacity="0.95">
+              {/* Head */}
+              <circle cx="70" cy="24" r="15" stroke="url(#holoGradient)" strokeWidth="1.8" fill="rgba(56, 189, 248, 0.08)" />
+              <path d="M 62 24 H 78 M 70 16 V 32" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="0.8" />
 
-            {/* SpO2 Node (Wrist/Arm) */}
-            <circle cx="16" cy="110" r="4" fill="#38bdf8" className="animate-ping opacity-75" />
-            <circle cx="16" cy="110" r="3" fill="#38bdf8" />
+              {/* Neck & Shoulders */}
+              <path d="M 64 38 L 76 38 L 78 46 L 62 46 Z" stroke="url(#holoGradient)" strokeWidth="1.5" fill="rgba(56, 189, 248, 0.12)" />
 
-            {/* Temp Node (Head) */}
-            <circle cx="50" cy="18" r="3.5" fill="#fbbf24" />
+              {/* Torso & Chest Contour */}
+              <path
+                d="M 44 50 L 96 50 L 88 125 L 52 125 Z"
+                stroke="url(#holoGradient)"
+                strokeWidth="2"
+                fill="url(#bodyWireframeGrid)"
+              />
+              <path d="M 70 50 V 125 M 48 74 H 92 M 50 98 H 90" stroke="rgba(56, 189, 248, 0.35)" strokeWidth="1" strokeDasharray="2 2" />
 
-            {/* Resp Node (Lungs) */}
-            <circle cx="56" cy="68" r="3.5" fill="#60a5fa" />
+              {/* Left & Right Arms */}
+              <path d="M 44 50 L 22 85 L 26 135" stroke="url(#holoGradient)" strokeWidth="2" strokeLinecap="round" />
+              <path d="M 96 50 L 118 85 L 114 135" stroke="url(#holoGradient)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="26" cy="135" r="3" stroke="#38bdf8" strokeWidth="1" fill="rgba(56, 189, 248, 0.3)" />
+              <circle cx="114" cy="135" r="3" stroke="#38bdf8" strokeWidth="1" fill="rgba(56, 189, 248, 0.3)" />
+
+              {/* Pelvis & Legs */}
+              <path d="M 52 125 L 62 205 M 88 125 L 78 205" stroke="url(#holoGradient)" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M 70 125 V 205" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="1" strokeDasharray="3 3" />
+              
+              {/* Feet */}
+              <path d="M 58 205 L 54 210 H 64 Z M 82 205 L 86 210 H 76 Z" fill="rgba(56, 189, 248, 0.4)" stroke="#38bdf8" strokeWidth="1" />
+            </g>
+
+            {/* Pulsing Anatomical Heart Indicator (Left Chest) */}
+            <g transform="translate(62, 68)">
+              {/* Soft Pink/Red Heart Aura Pulse */}
+              <circle cx="0" cy="0" r="9" fill="#f43f5e" className="animate-ping opacity-60" />
+              <circle cx="0" cy="0" r="5" fill="#f43f5e" className="animate-pulse" />
+              {/* Vector Heart Shape */}
+              <path
+                d="M 0 -3 C -2 -6, -6 -4, -6 -1 C -6 3, 0 6, 0 8 C 0 6, 6 3, 6 -1 C 6 -4, 2 -6, 0 -3 Z"
+                fill="#ffffff"
+                transform="scale(0.85)"
+              />
+            </g>
+
+            {/* Circular Scanning Platform Beneath Feet */}
+            <g transform="translate(70, 215)">
+              <ellipse cx="0" cy="0" rx="42" ry="10" stroke="#38bdf8" strokeWidth="1.5" fill="rgba(56, 189, 248, 0.05)" className="animate-pulse" />
+              <ellipse cx="0" cy="0" rx="28" ry="6.5" stroke="rgba(56, 189, 248, 0.5)" strokeWidth="1" strokeDasharray="4 2" />
+              <line x1="-42" y1="0" x2="42" y2="0" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
+              <line x1="0" y1="-10" x2="0" y2="10" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
+              {/* Scan Particles */}
+              <circle cx="-18" cy="-2" r="1.5" fill="#38bdf8" className="animate-ping" />
+              <circle cx="20" cy="2" r="1.5" fill="#38bdf8" className="animate-ping" />
+            </g>
           </svg>
         </div>
 
-        {/* Vertical Vital Telemetry Readout */}
-        <div className="flex flex-col gap-3 font-mono">
-          <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-md bg-rose-500/20 text-rose-400"><Heart className="size-3.5" /></span>
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">HR</span>
-              <span className="text-base font-bold text-white">{hr} <span className="text-[10px] text-slate-400 font-normal">bpm</span></span>
+        {/* VITAL SIGNS VERTICAL STACK */}
+        <div className="flex flex-col gap-3">
+          {/* 1. Heart Rate (HR) */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-full border border-rose-500/30 bg-rose-500/15 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)]">
+                <Heart className="size-4 animate-pulse fill-rose-500/30" />
+              </span>
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">HR</span>
+                <span className="text-xs text-slate-500">Heart Rate</span>
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-2xl font-bold tracking-tight text-white">{hr}</span>
+              <span className="text-xs font-medium text-slate-400">bpm</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-md bg-cyan-500/20 text-cyan-300"><Droplets className="size-3.5" /></span>
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">SpO₂</span>
-              <span className="text-base font-bold text-white">{spo2}%</span>
+          {/* 2. SpO2 */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-full border border-cyan-500/30 bg-cyan-500/15 text-cyan-300 shadow-[0_0_12px_rgba(56,189,248,0.3)]">
+                <Droplets className="size-4 fill-cyan-400/30" />
+              </span>
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">SpO₂</span>
+                <span className="text-xs text-slate-500">Oxygen Saturation</span>
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-2xl font-bold tracking-tight text-white">{spo2}</span>
+              <span className="text-xs font-medium text-slate-400">%</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-md bg-blue-500/20 text-blue-300"><Wind className="size-3.5" /></span>
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">RR</span>
-              <span className="text-base font-bold text-white">{rr} <span className="text-[10px] text-slate-400 font-normal">br/min</span></span>
+          {/* 3. Respiratory Rate (RR) */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-full border border-blue-500/30 bg-blue-500/15 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.3)]">
+                <Wind className="size-4" />
+              </span>
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">RR</span>
+                <span className="text-xs text-slate-500">Respiration Rate</span>
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-2xl font-bold tracking-tight text-white">{rr}</span>
+              <span className="text-xs font-medium text-slate-400">br/min</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-md bg-amber-500/20 text-amber-300"><Thermometer className="size-3.5" /></span>
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Temp</span>
-              <span className="text-base font-bold text-white">{temp} <span className="text-[10px] text-slate-400 font-normal">°C</span></span>
+          {/* 4. Temperature (TEMP) */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]">
+                <Thermometer className="size-4" />
+              </span>
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">TEMP</span>
+                <span className="text-xs text-slate-500">Body Temp</span>
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-2xl font-bold tracking-tight text-white">{temp}</span>
+              <span className="text-xs font-medium text-slate-400">°C</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Live ECG Rhythm Waveform */}
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-        <div className="flex items-center justify-between text-[10px] text-emerald-400 font-semibold mb-1">
-          <span>RHYTHM LEAD II</span>
-          <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /> 1 mV/cm</span>
+      {/* ==================================================================== */}
+      {/* 3. Bottom Section: Dedicated ECG Monitoring Panel */}
+      {/* ==================================================================== */}
+      <div className="mt-4 rounded-2xl border border-teal-500/25 bg-[#010612]/90 p-3.5 shadow-[inset_0_0_20px_rgba(20,184,166,0.08)]">
+        <div className="flex items-center justify-between text-xs mb-2">
+          <span className="font-bold tracking-wider text-slate-200 uppercase">RHYTHM LEAD II</span>
+          <span className="font-mono text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+            ● 1 mV/cm
+          </span>
         </div>
-        <ECGWaveformCanvas height={40} color="#10b981" />
-      </div>
-
-      {/* IoT Features Badge */}
-      <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[11px] text-slate-300 leading-relaxed">
-        <p className="font-semibold text-cyan-300 mb-1">IoT Patient Monitoring</p>
-        <ul className="space-y-0.5 text-[10px] text-slate-400">
-          <li>• Real-time telemetry streaming</li>
-          <li>• Edge AI risk processing</li>
-          <li>• Resilient mesh transport</li>
-          <li>• Better care. Faster response.</li>
-        </ul>
+        
+        {/* ECG Waveform Canvas with Teal Glowing Trace Line */}
+        <div className="relative rounded-lg overflow-hidden border border-teal-500/15 bg-black/80">
+          {/* Subtle Grid Background Overlay */}
+          <div
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              backgroundImage: 'linear-gradient(rgba(45, 212, 191, 0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(45, 212, 191, 0.3) 1px, transparent 1px)',
+              backgroundSize: '16px 16px',
+            }}
+          />
+          <ECGWaveformCanvas height={46} color="#2dd4bf" hr={hr} enableBeep={false} />
+        </div>
       </div>
     </div>
   )
