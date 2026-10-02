@@ -21,19 +21,17 @@ function HumanGlbModel({ hr }: { hr: number }) {
   const heartRef = useRef<THREE.Mesh>(null)
   const scanLineRef = useRef<THREE.Mesh>(null)
 
-  // Compute exact bounding box so any GLB human model scales & centers perfectly head-to-feet
   const { clonedScene, targetScale, targetY, heartY } = useMemo(() => {
     const cloned = scene.clone(true)
     const box = new THREE.Box3().setFromObject(cloned)
     const size = new THREE.Vector3()
     box.getSize(size)
 
-    // Desired height in 3D world units (fits inside camera view)
     const desiredHeight = 1.65
     const scale = size.y > 0 ? desiredHeight / size.y : 1
     const minY = box.min.y
-    const yOffset = -minY * scale // Align feet to y = 0
-    const heartHeight = yOffset + (size.y * scale * 0.72) // Heart at ~72% height
+    const yOffset = -minY * scale
+    const heartHeight = yOffset + (size.y * scale * 0.72)
 
     return {
       clonedScene: cloned,
@@ -43,7 +41,6 @@ function HumanGlbModel({ hr }: { hr: number }) {
     }
   }, [scene])
 
-  // Apply Hologram Cyan Shader Material
   useEffect(() => {
     clonedScene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -68,12 +65,10 @@ function HumanGlbModel({ hr }: { hr: number }) {
   useFrame(({ clock }) => {
     const time = clock.getElapsedTime()
 
-    // 1. Subtle idle rotation
     if (groupRef.current) {
       groupRef.current.rotation.y = Math.sin(time * 0.4) * 0.12
     }
 
-    // 2. Heart Pulse Animation
     if (heartRef.current) {
       const pulse = 1 + Math.sin(time * pulseSpeed) * 0.25
       heartRef.current.scale.set(pulse, pulse, pulse)
@@ -83,7 +78,6 @@ function HumanGlbModel({ hr }: { hr: number }) {
       }
     }
 
-    // 3. Vertical Scan Line Sweep
     if (scanLineRef.current) {
       scanLineRef.current.position.y = (Math.sin(time * 1.5) + 1) * 0.8 + 0.1
     }
@@ -91,10 +85,8 @@ function HumanGlbModel({ hr }: { hr: number }) {
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
-      {/* Auto-centered GLB Human Mesh */}
       <primitive object={clonedScene} scale={targetScale} position={[0, targetY, 0]} />
 
-      {/* Anatomical Heart Indicator */}
       <mesh ref={heartRef} position={[-0.06, heartY, 0.12]}>
         <sphereGeometry args={[0.045, 16, 16]} />
         <meshStandardMaterial
@@ -106,7 +98,6 @@ function HumanGlbModel({ hr }: { hr: number }) {
         />
       </mesh>
 
-      {/* Vertical Holographic Scanning Beam */}
       <mesh ref={scanLineRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.9, 0]}>
         <ringGeometry args={[0.01, 0.65, 32]} />
         <meshBasicMaterial
@@ -153,29 +144,24 @@ function ProceduralHologramFallback({ hr }: { hr: number }) {
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
-      {/* Head */}
       <mesh position={[0, 1.55, 0]} material={holoMat}>
         <sphereGeometry args={[0.14, 16, 16]} />
       </mesh>
-      {/* Torso */}
       <mesh position={[0, 1.1, 0]} material={holoMat}>
         <cylinderGeometry args={[0.22, 0.16, 0.7, 16]} />
       </mesh>
-      {/* Arms */}
       <mesh position={[-0.3, 1.15, 0]} rotation={[0, 0, 0.15]} material={holoMat}>
         <cylinderGeometry args={[0.05, 0.04, 0.65, 12]} />
       </mesh>
       <mesh position={[0.3, 1.15, 0]} rotation={[0, 0, -0.15]} material={holoMat}>
         <cylinderGeometry args={[0.05, 0.04, 0.65, 12]} />
       </mesh>
-      {/* Legs */}
       <mesh position={[-0.13, 0.4, 0]} material={holoMat}>
         <cylinderGeometry args={[0.07, 0.05, 0.75, 12]} />
       </mesh>
       <mesh position={[0.13, 0.4, 0]} material={holoMat}>
         <cylinderGeometry args={[0.07, 0.05, 0.75, 12]} />
       </mesh>
-      {/* Heart */}
       <mesh ref={heartRef} position={[-0.06, 1.2, 0.1]}>
         <sphereGeometry args={[0.045, 16, 16]} />
         <meshStandardMaterial color="#f43f5e" emissive="#f43f5e" emissiveIntensity={2.5} />
@@ -184,9 +170,6 @@ function ProceduralHologramFallback({ hr }: { hr: number }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Circular Rotating Holographic Scanning Platform Base
-// ---------------------------------------------------------------------------
 function HolographicPlatform() {
   const platformRef = useRef<THREE.Group>(null)
 
@@ -214,9 +197,6 @@ function HolographicPlatform() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Loading Spinner HUD Component
-// ---------------------------------------------------------------------------
 function HologramLoadingHud() {
   return (
     <Html center>
@@ -231,41 +211,89 @@ function HologramLoadingHud() {
 }
 
 // ---------------------------------------------------------------------------
-// Main Exported 3D Hologram Component
+// Main Exported 3D Hologram Component with Embed Mode & Three.js Canvas Mode
 // ---------------------------------------------------------------------------
 export function HologramHuman3D({ hr }: HologramHuman3DProps) {
-  const [hasError, setHasError] = useState(false)
+  const [useEmbed, setUseEmbed] = useState(true)
+
+  const pulseDuration = `${(60 / Math.max(40, hr)).toFixed(2)}s`
 
   return (
-    <div className="relative h-[280px] w-full overflow-hidden rounded-2xl bg-[#010612]/90 border border-cyan-500/20 shadow-[inset_0_0_40px_rgba(56,189,248,0.08)]">
-      <Canvas
-        camera={{ position: [0, 0.85, 2.5], fov: 45 }}
-        dpr={[1, 2]}
-        gl={{ antialias: true, alpha: true }}
-      >
-        <color attach="background" args={['#010612']} />
-        <ambientLight intensity={0.9} />
-        <pointLight position={[0, 2, 3]} intensity={18} color="#38bdf8" />
-        <pointLight position={[0, -1, -2]} intensity={8} color="#0284c7" />
+    <div className="relative h-[290px] w-full overflow-hidden rounded-2xl bg-[#010612]/90 border border-cyan-500/20 shadow-[inset_0_0_40px_rgba(56,189,248,0.08)]">
+      
+      {useEmbed ? (
+        /* Direct Sketchfab 3D Embed Player (c06468c7f4444e08a397e90bc84381d3) */
+        <div className="relative h-full w-full">
+          <iframe
+            title="Modern Human Skeletal Organs 3D Hologram"
+            src="https://sketchfab.com/models/c06468c7f4444e08a397e90bc84381d3/embed?autostart=1&internal=1&tracking=0&ui_ar=0&ui_infos=0&ui_snapshots=1&ui_stop=0&ui_theatre=1&ui_watermark=0"
+            className="h-full w-full border-0 pointer-events-auto"
+            allow="autoplay; fullscreen; xr-spatial-tracking"
+          />
 
-        <Sparkles count={35} scale={2.5} size={1.8} speed={0.4} color="#38bdf8" />
-        <HolographicPlatform />
+          {/* Overlay HUD Scan Line */}
+          <div
+            className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent pointer-events-none animate-pulse"
+            style={{ top: '35%', boxShadow: '0 0 12px rgba(56, 189, 248, 0.9)' }}
+          />
 
-        <Suspense fallback={<HologramLoadingHud />}>
-          {!hasError ? (
-            <HumanGlbModel hr={hr} />
-          ) : (
-            <ProceduralHologramFallback hr={hr} />
-          )}
-        </Suspense>
+          {/* Pulse Heart Indicator Overlay */}
+          <div className="absolute top-[32%] left-[45%] pointer-events-none flex items-center justify-center">
+            <div
+              className="size-5 rounded-full bg-rose-500/60 animate-ping"
+              style={{ animationDuration: pulseDuration }}
+            />
+            <div
+              className="absolute size-3 rounded-full bg-rose-500 shadow-[0_0_12px_#f43f5e]"
+              style={{ animationDuration: pulseDuration }}
+            />
+          </div>
 
-        <OrbitControls
-          enablePan={false}
-          enableZoom={false}
-          minPolarAngle={Math.PI / 3.5}
-          maxPolarAngle={Math.PI / 1.8}
-        />
-      </Canvas>
+          {/* Mode Switcher Button */}
+          <button
+            onClick={() => setUseEmbed(false)}
+            className="absolute top-2 right-2 rounded-lg border border-cyan-500/30 bg-black/80 px-2 py-1 font-mono text-[9px] font-bold text-cyan-300 backdrop-blur-md hover:bg-cyan-500/20"
+          >
+            Switch to WebGL Mesh
+          </button>
+        </div>
+      ) : (
+        /* WebGL Three.js Canvas Viewport */
+        <div className="relative h-full w-full">
+          <Canvas
+            camera={{ position: [0, 0.85, 2.5], fov: 45 }}
+            dpr={[1, 2]}
+            gl={{ antialias: true, alpha: true }}
+          >
+            <color attach="background" args={['#010612']} />
+            <ambientLight intensity={0.9} />
+            <pointLight position={[0, 2, 3]} intensity={18} color="#38bdf8" />
+            <pointLight position={[0, -1, -2]} intensity={8} color="#0284c7" />
+
+            <Sparkles count={35} scale={2.5} size={1.8} speed={0.4} color="#38bdf8" />
+            <HolographicPlatform />
+
+            <Suspense fallback={<HologramLoadingHud />}>
+              <HumanGlbModel hr={hr} />
+            </Suspense>
+
+            <OrbitControls
+              enablePan={false}
+              enableZoom={false}
+              minPolarAngle={Math.PI / 3.5}
+              maxPolarAngle={Math.PI / 1.8}
+            />
+          </Canvas>
+
+          {/* Mode Switcher Button */}
+          <button
+            onClick={() => setUseEmbed(true)}
+            className="absolute top-2 right-2 z-10 rounded-lg border border-cyan-500/30 bg-black/80 px-2 py-1 font-mono text-[9px] font-bold text-cyan-300 backdrop-blur-md hover:bg-cyan-500/20"
+          >
+            Switch to Sketchfab 3D
+          </button>
+        </div>
+      )}
     </div>
   )
 }
