@@ -13,7 +13,7 @@ interface HologramHuman3DProps {
 }
 
 // ---------------------------------------------------------------------------
-// 3D GLB Holographic Human Model Mesh Component
+// 3D GLB Holographic Human Model Mesh Component (Auto Bounding Box Scaled)
 // ---------------------------------------------------------------------------
 function HumanGlbModel({ hr }: { hr: number }) {
   const { scene } = useGLTF('/human-model.glb')
@@ -21,10 +21,29 @@ function HumanGlbModel({ hr }: { hr: number }) {
   const heartRef = useRef<THREE.Mesh>(null)
   const scanLineRef = useRef<THREE.Mesh>(null)
 
-  // Clone scene to avoid mutation across mounts
-  const clonedScene = useMemo(() => scene.clone(true), [scene])
+  // Compute exact bounding box so any GLB human model scales & centers perfectly head-to-feet
+  const { clonedScene, targetScale, targetY, heartY } = useMemo(() => {
+    const cloned = scene.clone(true)
+    const box = new THREE.Box3().setFromObject(cloned)
+    const size = new THREE.Vector3()
+    box.getSize(size)
 
-  // Apply Hologram Shader Materials to all meshes in the model
+    // Desired height in 3D world units (fits inside camera view)
+    const desiredHeight = 1.65
+    const scale = size.y > 0 ? desiredHeight / size.y : 1
+    const minY = box.min.y
+    const yOffset = -minY * scale // Align feet to y = 0
+    const heartHeight = yOffset + (size.y * scale * 0.72) // Heart at ~72% height
+
+    return {
+      clonedScene: cloned,
+      targetScale: scale,
+      targetY: yOffset,
+      heartY: heartHeight,
+    }
+  }, [scene])
+
+  // Apply Hologram Cyan Shader Material
   useEffect(() => {
     clonedScene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -32,9 +51,9 @@ function HumanGlbModel({ hr }: { hr: number }) {
         mesh.material = new THREE.MeshStandardMaterial({
           color: new THREE.Color('#0284c7'),
           emissive: new THREE.Color('#38bdf8'),
-          emissiveIntensity: 0.85,
+          emissiveIntensity: 0.95,
           transparent: true,
-          opacity: 0.65,
+          opacity: 0.7,
           roughness: 0.1,
           metalness: 0.8,
           wireframe: false,
@@ -44,7 +63,6 @@ function HumanGlbModel({ hr }: { hr: number }) {
     })
   }, [clonedScene])
 
-  // Dynamic heart pulse timing based on real-time HR
   const pulseSpeed = (hr / 60) * Math.PI * 2
 
   useFrame(({ clock }) => {
@@ -52,7 +70,7 @@ function HumanGlbModel({ hr }: { hr: number }) {
 
     // 1. Subtle idle rotation
     if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(time * 0.5) * 0.12
+      groupRef.current.rotation.y = Math.sin(time * 0.4) * 0.12
     }
 
     // 2. Heart Pulse Animation
@@ -65,19 +83,19 @@ function HumanGlbModel({ hr }: { hr: number }) {
       }
     }
 
-    // 3. Vertical Scan Line Sweep Animation
+    // 3. Vertical Scan Line Sweep
     if (scanLineRef.current) {
-      scanLineRef.current.position.y = (Math.sin(time * 1.5) + 1) * 0.95 + 0.1
+      scanLineRef.current.position.y = (Math.sin(time * 1.5) + 1) * 0.8 + 0.1
     }
   })
 
   return (
-    <group ref={groupRef} position={[0, -0.05, 0]}>
-      {/* 3D Full-Body GLB Human Model */}
-      <primitive object={clonedScene} scale={1.1} position={[0, 0, 0]} />
+    <group ref={groupRef} position={[0, 0, 0]}>
+      {/* Auto-centered GLB Human Mesh */}
+      <primitive object={clonedScene} scale={targetScale} position={[0, targetY, 0]} />
 
-      {/* Anatomical Heart Indicator (Left Chest 3D Position) */}
-      <mesh ref={heartRef} position={[-0.07, 1.28, 0.12]}>
+      {/* Anatomical Heart Indicator */}
+      <mesh ref={heartRef} position={[-0.06, heartY, 0.12]}>
         <sphereGeometry args={[0.045, 16, 16]} />
         <meshStandardMaterial
           color="#f43f5e"
@@ -88,8 +106,8 @@ function HumanGlbModel({ hr }: { hr: number }) {
         />
       </mesh>
 
-      {/* Vertical Holographic Scanning Line Beam */}
-      <mesh ref={scanLineRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 1.0, 0]}>
+      {/* Vertical Holographic Scanning Beam */}
+      <mesh ref={scanLineRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.9, 0]}>
         <ringGeometry args={[0.01, 0.65, 32]} />
         <meshBasicMaterial
           color="#38bdf8"
@@ -102,11 +120,10 @@ function HumanGlbModel({ hr }: { hr: number }) {
   )
 }
 
-// Preload GLB asset for immediate availability
 useGLTF.preload('/human-model.glb')
 
 // ---------------------------------------------------------------------------
-// Procedural Holographic Human Fallback (if GLB fails or while loading)
+// Procedural Holographic Human Fallback
 // ---------------------------------------------------------------------------
 function ProceduralHologramFallback({ hr }: { hr: number }) {
   const groupRef = useRef<THREE.Group>(null)
@@ -137,29 +154,29 @@ function ProceduralHologramFallback({ hr }: { hr: number }) {
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
       {/* Head */}
-      <mesh position={[0, 1.65, 0]} material={holoMat}>
-        <sphereGeometry args={[0.16, 16, 16]} />
+      <mesh position={[0, 1.55, 0]} material={holoMat}>
+        <sphereGeometry args={[0.14, 16, 16]} />
       </mesh>
       {/* Torso */}
-      <mesh position={[0, 1.15, 0]} material={holoMat}>
-        <cylinderGeometry args={[0.24, 0.18, 0.75, 16]} />
+      <mesh position={[0, 1.1, 0]} material={holoMat}>
+        <cylinderGeometry args={[0.22, 0.16, 0.7, 16]} />
       </mesh>
       {/* Arms */}
-      <mesh position={[-0.32, 1.2, 0]} rotation={[0, 0, 0.15]} material={holoMat}>
-        <cylinderGeometry args={[0.06, 0.05, 0.7, 12]} />
+      <mesh position={[-0.3, 1.15, 0]} rotation={[0, 0, 0.15]} material={holoMat}>
+        <cylinderGeometry args={[0.05, 0.04, 0.65, 12]} />
       </mesh>
-      <mesh position={[0.32, 1.2, 0]} rotation={[0, 0, -0.15]} material={holoMat}>
-        <cylinderGeometry args={[0.06, 0.05, 0.7, 12]} />
+      <mesh position={[0.3, 1.15, 0]} rotation={[0, 0, -0.15]} material={holoMat}>
+        <cylinderGeometry args={[0.05, 0.04, 0.65, 12]} />
       </mesh>
       {/* Legs */}
-      <mesh position={[-0.14, 0.45, 0]} material={holoMat}>
-        <cylinderGeometry args={[0.08, 0.06, 0.8, 12]} />
+      <mesh position={[-0.13, 0.4, 0]} material={holoMat}>
+        <cylinderGeometry args={[0.07, 0.05, 0.75, 12]} />
       </mesh>
-      <mesh position={[0.14, 0.45, 0]} material={holoMat}>
-        <cylinderGeometry args={[0.08, 0.06, 0.8, 12]} />
+      <mesh position={[0.13, 0.4, 0]} material={holoMat}>
+        <cylinderGeometry args={[0.07, 0.05, 0.75, 12]} />
       </mesh>
       {/* Heart */}
-      <mesh ref={heartRef} position={[-0.06, 1.25, 0.1]}>
+      <mesh ref={heartRef} position={[-0.06, 1.2, 0.1]}>
         <sphereGeometry args={[0.045, 16, 16]} />
         <meshStandardMaterial color="#f43f5e" emissive="#f43f5e" emissiveIntensity={2.5} />
       </mesh>
@@ -181,17 +198,14 @@ function HolographicPlatform() {
 
   return (
     <group ref={platformRef} position={[0, 0, 0]}>
-      {/* Outer Ring */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.6, 0.68, 64]} />
         <meshBasicMaterial color="#38bdf8" transparent opacity={0.6} side={THREE.DoubleSide} />
       </mesh>
-      {/* Inner Concentric Dash Ring */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.38, 0.42, 32]} />
         <meshBasicMaterial color="#0284c7" transparent opacity={0.4} side={THREE.DoubleSide} />
       </mesh>
-      {/* Center Grid Disc */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.65, 32]} />
         <meshBasicMaterial color="#0369a1" transparent opacity={0.12} side={THREE.DoubleSide} />
@@ -223,10 +237,9 @@ export function HologramHuman3D({ hr }: HologramHuman3DProps) {
   const [hasError, setHasError] = useState(false)
 
   return (
-    <div className="relative h-[250px] w-full overflow-hidden rounded-2xl bg-[#010612]/90 border border-cyan-500/20 shadow-[inset_0_0_40px_rgba(56,189,248,0.08)]">
-      {/* Canvas 3D Viewport */}
+    <div className="relative h-[280px] w-full overflow-hidden rounded-2xl bg-[#010612]/90 border border-cyan-500/20 shadow-[inset_0_0_40px_rgba(56,189,248,0.08)]">
       <Canvas
-        camera={{ position: [0, 1.1, 2.85], fov: 42 }}
+        camera={{ position: [0, 0.85, 2.5], fov: 45 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true }}
       >
@@ -235,13 +248,9 @@ export function HologramHuman3D({ hr }: HologramHuman3DProps) {
         <pointLight position={[0, 2, 3]} intensity={18} color="#38bdf8" />
         <pointLight position={[0, -1, -2]} intensity={8} color="#0284c7" />
 
-        {/* Ambient Cyan Hologram Dust Particles */}
         <Sparkles count={35} scale={2.5} size={1.8} speed={0.4} color="#38bdf8" />
-
-        {/* Rotating Circular Platform */}
         <HolographicPlatform />
 
-        {/* Real 3D Human Model or Procedural Fallback */}
         <Suspense fallback={<HologramLoadingHud />}>
           {!hasError ? (
             <HumanGlbModel hr={hr} />
