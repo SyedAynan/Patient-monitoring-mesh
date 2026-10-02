@@ -26,11 +26,11 @@ export function AnatomicalBodyHologram({
     ? patientId
     : `P-000${patientId.replace('patient-0', '').replace('patient-', '')}`
 
-  // Dynamic heart pulse rate based on live heart rate
+  // Dynamic heart pulse duration based on heart rate bpm
   const pulseDuration = `${(60 / Math.max(40, hr)).toFixed(2)}s`
 
   return (
-    <div className="flex flex-col h-full justify-between rounded-3xl border border-cyan-500/25 bg-gradient-to-b from-[#030e26] via-[#020817] to-[#01040f] p-5 sm:p-6 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
+    <div className="flex flex-col h-full justify-between rounded-3xl border border-cyan-500/30 bg-gradient-to-b from-[#030e26] via-[#020817] to-[#01040f] p-5 sm:p-6 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
       {/* ==================================================================== */}
       {/* 1. Header: Top-Left Patient Details (Dynamic HTML) */}
       {/* ==================================================================== */}
@@ -45,162 +45,48 @@ export function AnatomicalBodyHologram({
       {/* ==================================================================== */}
       <div className="my-2 grid grid-cols-1 md:grid-cols-[1.15fr_1fr] items-center gap-5">
         
-        {/* HOLOGRAPHIC DIGITAL TWIN HUMAN VISUALIZATION AREA */}
-        <div className="relative flex flex-col items-center justify-center py-5 px-3 overflow-hidden rounded-2xl bg-cyan-950/15 border border-cyan-500/15 shadow-[inset_0_0_30px_rgba(56,189,248,0.06)]">
+        {/* FULL-BODY HOLOGRAPHIC HUMAN DIGITAL TWIN VISUALIZATION AREA */}
+        <div className="relative flex flex-col items-center justify-center py-4 px-2 overflow-hidden rounded-2xl bg-cyan-950/20 border border-cyan-500/20 shadow-[inset_0_0_35px_rgba(56,189,248,0.08)] min-h-[250px]">
           
-          {/* Subtle Background Neon Cyan Aura Glow */}
-          <div className="absolute inset-0 m-auto size-48 rounded-full bg-cyan-500/10 blur-2xl animate-pulse" />
+          {/* Background Soft Neon Cyan Aura Glow */}
+          <div className="absolute inset-0 m-auto size-52 rounded-full bg-cyan-500/15 blur-3xl animate-pulse" />
 
-          {/* Animated Vertical Scanning Beam Sweep */}
+          {/* Animated Vertical Scanning Line Sweep */}
           <div
-            className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent pointer-events-none animate-pulse"
+            className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent pointer-events-none z-20 animate-pulse"
             style={{
-              top: '35%',
-              boxShadow: '0 0 12px rgba(56, 189, 248, 0.9)',
+              top: '38%',
+              boxShadow: '0 0 15px rgba(56, 189, 248, 0.9)',
             }}
           />
 
-          {/* Transparent Holographic Human Digital Twin SVG */}
-          <svg
-            width="150"
-            height="240"
-            viewBox="0 0 140 240"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="relative z-10 drop-shadow-[0_0_20px_rgba(56,189,248,0.5)]"
-          >
-            <defs>
-              {/* Holographic Cyan Linear Gradient */}
-              <linearGradient id="holoGradient" x1="70" y1="0" x2="70" y2="230" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.95" />
-                <stop offset="50%" stopColor="#0284c7" stopOpacity="0.8" />
-                <stop offset="100%" stopColor="#0369a1" stopOpacity="0.6" />
-              </linearGradient>
+          {/* Premium Holographic Human Digital Twin Image Asset */}
+          <div className="relative z-10 flex justify-center items-center h-[230px] w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/holographic-human-body.png"
+              alt="Holographic Human Digital Twin"
+              className="h-full w-auto object-contain mix-blend-screen drop-shadow-[0_0_20px_rgba(56,189,248,0.6)]"
+            />
 
-              {/* Fine Anatomical Wireframe Grid Pattern */}
-              <pattern id="humanGrid" width="6" height="6" patternUnits="userSpaceOnUse">
-                <path d="M 6 0 L 0 0 0 6" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="0.5" />
-              </pattern>
-            </defs>
-
-            {/* Anatomically Recognizable Full-Body Human Silhouette */}
-            <g opacity="0.95">
-              {/* Head & Cranium */}
-              <path
-                d="M 70 8 C 61 8, 56 14, 56 24 C 56 34, 62 38, 70 38 C 78 38, 84 34, 84 24 C 84 14, 79 8, 70 8 Z"
-                stroke="url(#holoGradient)"
-                strokeWidth="1.8"
-                fill="rgba(56, 189, 248, 0.08)"
-              />
-              <path d="M 60 24 H 80 M 70 12 V 34" stroke="rgba(56, 189, 248, 0.35)" strokeWidth="0.8" />
-
-              {/* Neck & Trapezius */}
-              <path
-                d="M 64 36 L 64 44 C 64 45, 52 49, 44 54 M 76 36 L 76 44 C 76 45, 88 49, 96 54"
-                stroke="url(#holoGradient)"
-                strokeWidth="1.8"
-                fill="none"
-              />
-
-              {/* Anatomical Torso (Chest, Ribcage, Waist, Pelvis) */}
-              <path
-                d="M 44 54 C 44 54, 54 62, 70 62 C 86 62, 96 54, 96 54 C 98 75, 94 95, 90 112 C 86 125, 80 132, 70 132 C 60 132, 54 125, 50 112 C 46 95, 42 75, 44 54 Z"
-                stroke="url(#holoGradient)"
-                strokeWidth="2"
-                fill="url(#humanGrid)"
-              />
-
-              {/* Internal Ribcage & Spinal Grid Lines */}
-              <path d="M 70 44 V 132" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" strokeDasharray="3 2" />
-              <path d="M 52 70 C 60 76, 80 76, 88 70" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" />
-              <path d="M 54 85 C 62 90, 78 90, 86 85" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" />
-              <path d="M 56 100 C 63 104, 77 104, 84 100" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" />
-
-              {/* Left Arm (Shoulder, Deltoid, Bicep, Forearm, Hand) */}
-              <path
-                d="M 44 54 C 36 58, 30 70, 26 90 C 23 105, 20 122, 18 142 C 17 148, 15 154, 15 158"
-                stroke="url(#holoGradient)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                fill="none"
-              />
-              <path d="M 50 64 C 42 75, 36 95, 30 120 C 27 135, 24 148, 22 156" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" fill="none" />
-              <circle cx="15" cy="158" r="3" stroke="#38bdf8" strokeWidth="1" fill="rgba(56, 189, 248, 0.3)" />
-
-              {/* Right Arm (Shoulder, Deltoid, Bicep, Forearm, Hand) */}
-              <path
-                d="M 96 54 C 104 58, 110 70, 114 90 C 117 105, 120 122, 122 142 C 123 148, 125 154, 125 158"
-                stroke="url(#holoGradient)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                fill="none"
-              />
-              <path d="M 90 64 C 98 75, 104 95, 110 120 C 113 135, 116 148, 118 156" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" fill="none" />
-              <circle cx="125" cy="158" r="3" stroke="#38bdf8" strokeWidth="1" fill="rgba(56, 189, 248, 0.3)" />
-
-              {/* Left Leg (Thigh, Knee, Calf, Ankle, Foot) */}
-              <path
-                d="M 52 130 C 50 148, 52 170, 56 188 C 58 198, 57 210, 55 222 L 48 226 H 60 Z"
-                stroke="url(#holoGradient)"
-                strokeWidth="2"
-                fill="rgba(56, 189, 248, 0.08)"
-              />
-
-              {/* Right Leg (Thigh, Knee, Calf, Ankle, Foot) */}
-              <path
-                d="M 88 130 C 90 148, 88 170, 84 188 C 82 198, 83 210, 85 222 L 92 226 H 80 Z"
-                stroke="url(#holoGradient)"
-                strokeWidth="2"
-                fill="rgba(56, 189, 248, 0.08)"
-              />
-
-              {/* Knee Joint Nodes */}
-              <circle cx="56" cy="186" r="3" stroke="#38bdf8" strokeWidth="1" fill="rgba(56, 189, 248, 0.3)" />
-              <circle cx="84" cy="186" r="3" stroke="#38bdf8" strokeWidth="1" fill="rgba(56, 189, 248, 0.3)" />
-            </g>
-
-            {/* INTEGRATED PULSING ANATOMICAL HEART MARKER (LEFT CHEST) */}
-            <g transform="translate(63, 72)">
-              {/* Soft Pink/Red Heart Pulse Aura */}
-              <circle
-                cx="0"
-                cy="0"
-                r="10"
-                fill="#f43f5e"
-                className="animate-ping opacity-60"
+            {/* Dynamic Pulsing Heart Marker Overlay over Anatomical Heart */}
+            <div className="absolute top-[28%] left-[46%] -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+              <span
+                className="absolute -inset-2 rounded-full bg-rose-500 opacity-75 animate-ping"
                 style={{ animationDuration: pulseDuration }}
               />
-              <circle
-                cx="0"
-                cy="0"
-                r="6"
-                fill="#f43f5e"
-                className="animate-pulse"
+              <span
+                className="relative grid size-3.5 place-items-center rounded-full bg-rose-500 shadow-[0_0_12px_#f43f5e] animate-pulse"
                 style={{ animationDuration: pulseDuration }}
-              />
-              {/* Vector Heart Icon */}
-              <path
-                d="M 0 -3 C -2.5 -6, -6 -4, -6 -1 C -6 3, 0 6, 0 8.5 C 0 6, 6 3, 6 -1 C 6 -4, 2.5 -6, 0 -3 Z"
-                fill="#ffffff"
-                transform="scale(0.9)"
-              />
-            </g>
-
-            {/* CIRCULAR SCANNING PLATFORM BENEATH FEET */}
-            <g transform="translate(70, 228)">
-              <ellipse cx="0" cy="0" rx="46" ry="11" stroke="#38bdf8" strokeWidth="1.6" fill="rgba(56, 189, 248, 0.06)" className="animate-pulse" />
-              <ellipse cx="0" cy="0" rx="30" ry="7" stroke="rgba(56, 189, 248, 0.6)" strokeWidth="1" strokeDasharray="4 2" />
-              <line x1="-46" y1="0" x2="46" y2="0" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
-              <line x1="0" y1="-11" x2="0" y2="11" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
-              {/* Scanning Grid Particles */}
-              <circle cx="-22" cy="-3" r="1.8" fill="#38bdf8" className="animate-ping" />
-              <circle cx="24" cy="3" r="1.8" fill="#38bdf8" className="animate-ping" />
-            </g>
-          </svg>
+              >
+                <Heart className="size-2 text-white fill-white" />
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* VITAL SIGNS VERTICAL STACK (DYNAMIC HTML REACT ELEMENTS) */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3.5">
           {/* 1. HR — Heart Rate */}
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-3">
