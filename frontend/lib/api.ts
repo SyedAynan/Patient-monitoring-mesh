@@ -5,7 +5,7 @@
  *   { data: T | null, error: { code: string, message: string } | null }
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+import { resolveBackendBaseUrl } from './capacitor';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,7 +84,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (token && !headers.has('X-Operator-Token')) {
     headers.set('X-Operator-Token', token);
   }
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  const res = await fetch(`${resolveBackendBaseUrl()}${path}`, { ...init, headers });
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${res.statusText}`);
   }

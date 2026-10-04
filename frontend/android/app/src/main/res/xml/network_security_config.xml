@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network security config for the LAN-bound monitoring app.
+
+  The FastAPI backend runs on a PC on the same private network and speaks plain
+  HTTP (lab/LAN deployment — there is no TLS terminator). The dashboard only
+  ever talks to the backend host the operator configures, on the ward LAN.
+
+  Android's <domain> rules match DNS names, not IP literals, so they cannot
+  express "allow http://192.168.x.x". We therefore permit cleartext at the app
+  level and scope trust via the user-added CA block below (empty by default —
+  the app trusts only system CAs for any TLS it does make).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

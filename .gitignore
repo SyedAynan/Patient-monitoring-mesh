@@ -14,3 +14,17 @@ node_modules/
 .next/
 out/
 *.tsbuildinfo
+
+# --- Android / Capacitor build artifacts ---
+frontend/android/.gradle/
+frontend/android/.idea/
+frontend/android/local.properties
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/android/**/build/
+*.apk
+*.aab
+*.keystore
+*.jks
+key.properties

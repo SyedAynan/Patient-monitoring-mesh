@@ -44,6 +44,7 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 - 📏 **[Evaluation (Measurement Method)](docs/Evaluation.md)** - Metrics, experiment scenarios, and evidence rules. No results measured yet.
 - ⚠️ **[Risks (Risk Register)](docs/Risks.md)** - Hardware, protocol, security, and process risks with fallbacks.
 - 📜 **[Rules (Engineering Rules)](docs/Rules.md)** - Coding style, project constraints, and architectural guidelines.
+- 📱 **[Mobile App (Android APK)](docs/MobileApp.md)** - Build and run the dashboard as a native Android app on the ward LAN.
 
 ## <img src="./assets/rocket_icon.png" width="24" align="center"> Current Status
 
@@ -112,11 +113,16 @@ install the backend and frontend dependencies, launch the backend
 (`http://127.0.0.1:8000`) and the dashboard (`http://localhost:3000`), and
 open a browser tab. Requirements: **Python 3.10+** and **Node.js 18+**.
 
-**Install it as a phone app:** open `http://localhost:3000` on your phone
-(same Wi-Fi, replace `localhost` with your computer's LAN IP), then use the
-browser's **"Add to Home Screen" / "Install app"** — the dashboard is a PWA
-and launches full-screen, black-themed, like a native app. Installability
-shows in Chrome's address bar on desktop too.
+**Install it as a phone app (two ways):**
+
+1. **PWA — easiest.** Open `http://localhost:3000` on your phone (same Wi-Fi,
+   replace `localhost` with your computer's LAN IP), then use the browser's
+   **"Add to Home Screen" / "Install app"**. The dashboard launches
+   full-screen, black-themed, like a native app.
+2. **Native APK.** A Capacitor wrapper is included under `frontend/android/`.
+   See **[docs/MobileApp.md](docs/MobileApp.md)** for the one-command build
+   (`build-apk.bat` / `./build-apk.sh`) and how to point the app at the backend
+   running on your PC.
 
 Manual setup, if you prefer:
 
