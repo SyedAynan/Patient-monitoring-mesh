@@ -30,6 +30,7 @@ from simulator.sensing.sources import (  # noqa: E402
     VitalSource,
 )
 from simulator.transport import SimulatedMedium  # noqa: E402
+from shared.security import DeviceCredentialStore  # noqa: E402
 
 RELAY_ID = "relay-01"
 RELAY2_ID = "relay-02"
@@ -107,6 +108,7 @@ def build_standard_mesh(
     relay_buffer_capacity: int = 0,
     two_relay: bool = False,
     sources: dict[str, VitalSource] | None = None,
+    authenticate: bool = False,
 ) -> Mesh:
     """Build a mesh with `patient_count` patients (2 to 5).
 
@@ -117,6 +119,11 @@ def build_standard_mesh(
     which is what makes relay failure survivable (Phase 4). `relay_buffer_capacity`
     enables store-and-forward on the primary relay; zero keeps the Phase 3
     drop-and-count behaviour.
+
+    `authenticate=True` (Phase 7) provisions a credential store with a lab master
+    key, gives every node its MAC key, and makes the gateway verify every frame
+    before parsing it. Deterministic seed for the key, so tests are reproducible
+    and nothing here is a production secret.
     """
     if not 2 <= patient_count <= len(PATIENT_PROFILES):
         raise ValueError(f"patient_count must be between 2 and {len(PATIENT_PROFILES)}")
@@ -132,7 +139,20 @@ def build_standard_mesh(
     medium.register(GATEWAY_ID)
     medium.register(RELAY_ID)
 
-    gateway = Gateway(gateway_id=GATEWAY_ID, transport=medium.transport(GATEWAY_ID))
+    credential_store = None
+    if authenticate:
+        # Lab demo key, deterministic from the seed: reproducible in tests,
+        # and by construction not a real secret (never claim production safety).
+        master_key = f"lab-demo-key-{seed}".encode("utf-8")
+        credential_store = DeviceCredentialStore(master_key=master_key)
+        for device_id, _patient_id, _factory, _label in PATIENT_PROFILES[:patient_count]:
+            credential_store.provision(device_id)
+
+    gateway = Gateway(
+        gateway_id=GATEWAY_ID,
+        transport=medium.transport(GATEWAY_ID),
+        credential_store=credential_store,
+    )
 
     nodes: list[SensorNode] = []
     for index, (device_id, patient_id, factory, _label) in enumerate(PATIENT_PROFILES[:patient_count]):
@@ -149,6 +169,7 @@ def build_standard_mesh(
                     next_hop=next_hop,
                     alternate_hop=alternate_hop,
                     samples_per_packet=samples_per_packet,
+                    mac_key=(credential_store._master_key if authenticate else None),
                 ),
                 source=source,
                 transport=medium.transport(device_id),

@@ -5,15 +5,15 @@
  * message types via callbacks.
  */
 
-import type { Measurement, Alert, Device, NetworkEvent } from './api';
+import type { Measurement, Alert, Device, NetworkEvent, RiskSnapshot } from './api';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/api/v1/realtime';
 
-export type RealtimeMessageType = 'measurement' | 'alert' | 'device_status' | 'network_event';
+export type RealtimeMessageType = 'measurement' | 'alert' | 'device_status' | 'network_event' | 'risk';
 
 export interface RealtimeMessage {
   type: RealtimeMessageType;
-  payload: Measurement | Alert | Device | NetworkEvent;
+  payload: Measurement | Alert | Device | NetworkEvent | RiskSnapshot;
 }
 
 type Listener = (msg: RealtimeMessage) => void;

@@ -25,8 +25,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from shared.protocol import PacketValidationError, decode_packet
+from shared.security import DeviceCredentialStore
 
 from ..transport import Frame, FrameError, LinkUnavailable, Transport
+
+# Replay window: how many past sequence numbers per device are remembered.
+# Large enough that store-and-forward backfill (which can lag by tens of
+# packets after an outage) is never misjudged as a replay, bounded so memory
+# stays constant per device.
+REPLAY_WINDOW = 256
 
 
 @dataclass
@@ -41,20 +48,47 @@ class GatewayStats:
     packets_invalid: int = 0
     acks_sent: int = 0
     acks_failed_unsent: int = 0
+    # Phase 7: authentication and replay accounting.
+    auth_rejected: int = 0
+    auth_unknown_device: int = 0
+    auth_revoked: int = 0
+    auth_bad_mac: int = 0
+    replays_rejected: int = 0
     last_error_code: str | None = None
     last_error_source: str | None = None
 
 
 @dataclass
 class Gateway:
-    """Receives telemetry, validates it, acknowledges it, and deduplicates it."""
+    """Receives telemetry, validates it, authenticates it, and deduplicates it.
+
+    Phase 7 adds the enforcement point `docs/Architecture.md` section 8
+    describes: when a `credential_store` is configured, every data frame is
+    authenticated *before* its payload is parsed. Unknown, revoked, or
+    wrongly-keyed senders are rejected without an acknowledgement — fail
+    closed, so an attacker learns nothing from a retry.
+    """
 
     gateway_id: str
     transport: Transport
+    credential_store: DeviceCredentialStore | None = None
     stats: GatewayStats = field(default_factory=GatewayStats)
     received: dict[tuple[str, int], dict] = field(default_factory=dict)
     # Ordered log of accepted packets, for sequence and ordering assertions.
     accepted_order: list[tuple[str, int]] = field(default_factory=list)
+    # Replay bookkeeping: per-device high-water mark of seen sequences.
+    _highest_sequence: dict[str, int] = field(default_factory=dict, repr=False)
+
+    def _record_auth_rejection(self, outcome) -> None:
+        self.stats.auth_rejected += 1
+        if outcome.reason == "UNKNOWN_DEVICE":
+            self.stats.auth_unknown_device += 1
+        elif outcome.reason == "REVOKED":
+            self.stats.auth_revoked += 1
+        else:
+            self.stats.auth_bad_mac += 1
+        self.stats.last_error_code = outcome.reason
+        self.stats.last_error_source = None
 
     def _send_ack(self, frame: Frame) -> None:
         """Acknowledge a message back along the path it actually arrived on.
@@ -68,6 +102,9 @@ class Gateway:
             destination=frame.source,
             acks=frame.message_id,
         )
+        # The ack travels unsigned in this phase: an ack confirms receipt of an
+        # authenticated frame and carries no telemetry. A spoofed ack can only
+        # suppress a legitimate sender's retries, never inject data.
         neighbour = frame.last_hop or frame.source
         try:
             self.transport.transmit(neighbour, ack.to_bytes())
@@ -77,6 +114,21 @@ class Gateway:
         self.stats.acks_sent += 1
 
     def _accept(self, frame: Frame) -> None:
+        # Authentication first — always before parsing the payload. A spoofed
+        # frame must never reach contract validation, and a rejected one gets
+        # no ack: fail closed (Rules section 12).
+        if self.credential_store is not None:
+            outcome = self.credential_store.verify(
+                source=frame.source,
+                destination=frame.destination,
+                message_id=frame.message_id,
+                payload=frame.payload,
+                presented_mac=frame.auth,
+            )
+            if not outcome.accepted:
+                self._record_auth_rejection(outcome)
+                return
+
         try:
             packet = decode_packet(frame.payload)
         except PacketValidationError as exc:
@@ -97,6 +149,18 @@ class Gateway:
         self.received[key] = packet
         self.accepted_order.append(key)
         self.stats.packets_accepted += 1
+
+        # Replay signal: a sequence far below the per-device high-water mark is
+        # either a stale replay or a very old backfill. Counted as a signal, not
+        # rejected — the sequence contract's dedup already guarantees
+        # uniqueness, and suppressing backfill would break recovery completeness.
+        device_id, sequence = key
+        highest = self._highest_sequence.get(device_id)
+        if highest is not None and sequence < highest - REPLAY_WINDOW:
+            self.stats.replays_rejected += 1
+        if highest is None or sequence > highest:
+            self._highest_sequence[device_id] = sequence
+
         self._send_ack(frame)
 
     def tick(self) -> int:

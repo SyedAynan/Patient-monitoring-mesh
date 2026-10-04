@@ -91,6 +91,42 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        5,
+        """
+        CREATE TABLE IF NOT EXISTS risk_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id TEXT NOT NULL,
+            level TEXT NOT NULL,
+            score INTEGER NOT NULL,
+            signal_quality REAL NOT NULL,
+            evidence TEXT NOT NULL,
+            explanation TEXT NOT NULL DEFAULT '',
+            config_fingerprint TEXT NOT NULL,
+            captured_at_ms INTEGER NOT NULL,
+            device_id TEXT NOT NULL,
+            sequence_number INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_risk_patient_time
+            ON risk_snapshots (patient_id, captured_at_ms);
+        """,
+    ),
+    (
+        6,
+        """
+        CREATE TABLE IF NOT EXISTS audit_events (
+            event_id TEXT PRIMARY KEY,
+            action TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            target TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            at_ms INTEGER NOT NULL,
+            detail TEXT NOT NULL DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_time
+            ON audit_events (at_ms);
+        """,
+    ),
 )
 
 
@@ -236,6 +272,91 @@ class Persistence:
             )
 
     # -- reads ------------------------------------------------------------
+
+    def write_risk_snapshot(self, snapshot: dict[str, Any]) -> None:
+        """Store one risk assessment. Snapshots are append-only history."""
+        import json
+
+        with self._conn:
+            self._conn.execute(
+                """
+                INSERT INTO risk_snapshots (
+                    patient_id, level, score, signal_quality, evidence,
+                    explanation, config_fingerprint, captured_at_ms, device_id,
+                    sequence_number
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    snapshot["patient_id"],
+                    snapshot["level"],
+                    snapshot["score"],
+                    snapshot["signal_quality"],
+                    json.dumps(snapshot.get("evidence", []), sort_keys=True),
+                    snapshot.get("explanation", ""),
+                    snapshot["config_fingerprint"],
+                    snapshot["captured_at_ms"],
+                    snapshot.get("device_id", ""),
+                    snapshot.get("sequence_number"),
+                ),
+            )
+
+    def risk_snapshots_for(self, patient_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Latest-first risk history for one patient, evidence decoded."""
+        import json
+
+        rows = self._conn.execute(
+            "SELECT * FROM risk_snapshots WHERE patient_id = ? "
+            "ORDER BY captured_at_ms DESC, id DESC LIMIT ?",
+            (patient_id, limit),
+        )
+        return [
+            {
+                "patient_id": row["patient_id"],
+                "level": row["level"],
+                "score": row["score"],
+                "signal_quality": row["signal_quality"],
+                "evidence": json.loads(row["evidence"]),
+                "explanation": row["explanation"],
+                "config_fingerprint": row["config_fingerprint"],
+                "captured_at_ms": row["captured_at_ms"],
+                "device_id": row["device_id"],
+                "sequence_number": row["sequence_number"],
+            }
+            for row in rows
+        ]
+
+    def write_audit_event(self, event: dict[str, Any]) -> None:
+        """Store one security-relevant action. Append-only."""
+        with self._conn:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO audit_events "
+                "(event_id, action, actor, target, outcome, at_ms, detail) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    event["event_id"], event["action"], event["actor"],
+                    event["target"], event["outcome"], event["at_ms"],
+                    event.get("detail", ""),
+                ),
+            )
+
+    def audit_events_for(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Latest-first audit trail. `detail` must never hold a secret."""
+        rows = self._conn.execute(
+            "SELECT * FROM audit_events ORDER BY at_ms DESC, event_id LIMIT ?",
+            (limit,),
+        )
+        return [
+            {
+                "event_id": row["event_id"],
+                "action": row["action"],
+                "actor": row["actor"],
+                "target": row["target"],
+                "outcome": row["outcome"],
+                "at_ms": row["at_ms"],
+                "detail": row["detail"],
+            }
+            for row in rows
+        ]
 
     def measurement_count(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) AS n FROM measurements").fetchone()

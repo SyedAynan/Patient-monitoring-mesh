@@ -106,6 +106,56 @@ of which radio carried it.
 (Phase 3), store-and-forward and alternate paths (Phase 4), persistence and
 dashboard (Phase 5), risk scoring (Phase 6), authentication (Phase 7).
 
+## 3b. Implemented structure (Phase 5)
+
+Phase 5 added the backend and dashboard:
+
+```text
+backend/app/
+  main.py               FastAPI factory, CORS, lifespan (starts the simulator)
+  simulator_state.py    runs the mesh in-process; harvests and broadcasts
+  persistence.py        SQLite: numbered migrations, FR-05 uniqueness constraint
+  routes/               devices, patients (history from DB), alerts, network,
+                        realtime (WebSocket)
+frontend/               React 19 + TS (strict) + Tailwind + shadcn/ui + Recharts
+  lib/api.ts            typed client, envelope handling, real-backend base URL
+  lib/realtime.ts       WebSocket client with exponential-backoff reconnect
+  components/           monitoring dashboard, patient cards, trends, alerts,
+                        network view, 3D digital-twin view, ECG canvas
+```
+
+**The backend is the authority.** It validates nothing from the frontend beyond
+query parameters, but every measurement it serves passed `shared/protocol`
+validation on ingestion, and the database enforces the
+`(device_id, sequence_number)` uniqueness. The frontend renders backend values;
+its demo-mode risk score is a client heuristic, not the authoritative risk state
+(Phase 6 owns that, server-side).
+
+**Simulator as data source (documented simplification, R-09):** instead of an
+MQTT broker between gateway and backend, the backend ticks the mesh in-process.
+The domain separation is preserved — swap in a real gateway feed later without
+touching routes, persistence, or the dashboard.
+
+## 3c. Implemented structure (Phase 7)
+
+Security, exactly where section 8 said it would live:
+
+```text
+shared/security/        MAC (HMAC-SHA256 over immutable frame fields) +
+                        DeviceCredentialStore (provision/revoke/rotate)
+simulator/transport/    Frame.auth field (optional, 64-hex, preserved by relays)
+simulator/roles/        node signs when keyed; gateway verifies BEFORE parsing
+backend/app/security.py operator-token guard (lab|token modes) + audit events
+backend/app/routes/     POST /devices/{id}/revoke (guarded); acknowledge (guarded)
+```
+
+The gateway is the single enforcement point: authentication precedes contract
+validation, rejected frames get no acknowledgement, and every rejection reason
+is counted. The backend API adds an operator layer above it — lab mode (no
+login, the PRD's documented MVP decision) or token mode for mutations, failing
+closed when misconfigured. Audit events record every security-relevant decision
+without ever recording a secret.
+
 ## 4. Frontend architecture
 
 - `AppShell`: navigation, environment/status banner, responsive layout.

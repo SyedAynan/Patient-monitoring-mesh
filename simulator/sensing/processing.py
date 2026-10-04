@@ -95,6 +95,7 @@ class SignalFilter:
         self._heart_rate: list[float] = []
         self._spo2: list[float] = []
         self._temperature: list[float] = []
+        self._timestamps_ms: list[int] = []
         self._rejected: int = 0
 
     def _push(self, series: list[float], value: float) -> None:
@@ -102,18 +103,38 @@ class SignalFilter:
         if len(series) > self.window_size:
             del series[0]
 
-    def observe(self, reading: Reading) -> None:
-        """Add a reading to the window; implausible values are counted, not stored."""
+    def observe(self, reading: Reading, captured_at_ms: int | None = None) -> None:
+        """Add a reading to the window; implausible values are counted, not stored.
+
+        `captured_at_ms` records when the sample entered the window, which is
+        what makes trend rules possible: a rate needs two points *and* time
+        between them. When omitted, the timestamp of the last sample is reused
+        so a degenerate series never produces a fake rate.
+        """
         if not is_plausible(reading):
             self._rejected += 1
             return
         self._push(self._heart_rate, reading.heart_rate_bpm)
         self._push(self._spo2, reading.spo2_percent)
         self._push(self._temperature, reading.temperature_c)
+        timestamp = captured_at_ms if captured_at_ms is not None else (
+            self._timestamps_ms[-1] if self._timestamps_ms else 0
+        )
+        self._timestamps_ms.append(timestamp)
+        if len(self._timestamps_ms) > self.window_size:
+            del self._timestamps_ms[0]
 
     @property
     def rejected_readings(self) -> int:
         return self._rejected
+
+    def spo2_series(self) -> list[float]:
+        """The SpO₂ window, oldest first — trend-rule input."""
+        return list(self._spo2)
+
+    def timestamps_series(self) -> list[int]:
+        """Capture timestamps aligned with the vitals windows, oldest first."""
+        return list(self._timestamps_ms)
 
     def _dispersion(self) -> float:
         """Mean absolute deviation of heart rate, the noisiest indicator."""

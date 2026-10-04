@@ -1,9 +1,10 @@
-"""Phase 5 contract tests for the FastAPI backend.
+"""Phase 5/6 contract tests for the FastAPI backend.
 
 These pin the wire contract the dashboard depends on: envelope shape on every
 REST route, measurement ordering, alert filtering and acknowledgement, network
-metrics, and the realtime stream. The app runs in-process with a fast tick
-interval so the simulator produces data within the test.
+metrics, risk explanation/config endpoints, and the realtime stream. The app
+runs in-process with a fast tick interval so the simulator produces data within
+the test.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -211,6 +213,120 @@ class BackendContractTests(unittest.TestCase):
         with self.client:
             response = self.client.get("/api/v1/alerts?status=banana")
         self.assertEqual(response.status_code, 422)
+
+    # -- risk (Phase 6) ---------------------------------------------------
+
+    def test_risk_config_get_returns_the_rule_set(self) -> None:
+        with self.client:
+            body = self._get("/api/v1/risk/config")
+        data = body["data"]
+        self.assertEqual(data["thresholds"]["hr_high"], 120.0)
+        self.assertEqual(data["thresholds"]["spo2_low"], 94.0)
+        self.assertIn("rules", data)
+        self.assertIn("minimum_quality", data)
+        self.assertIn("critical_score", data)
+
+    def test_risk_config_put_updates_and_syncs_nodes(self) -> None:
+        with self.client:
+            response = self.client.put(
+                "/api/v1/risk/config",
+                json={"hr_high": 100, "hr_low": 55, "spo2_low": 95, "temp_high": 37.5},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["thresholds"]["hr_high"], 100)
+
+        # Nodes in the running mesh now score with the same config: no drift.
+        if state.mesh is not None:
+            for node in state.mesh.nodes:
+                self.assertEqual(node.config.risk_config.rules[0].bound, 100)
+
+        # Restore defaults so other tests are unaffected.
+        with self.client:
+            restore = self.client.put(
+                "/api/v1/risk/config",
+                json={"hr_high": 120, "hr_low": 50, "spo2_low": 94, "temp_high": 38.0},
+            )
+        self.assertEqual(restore.status_code, 200)
+
+    def test_risk_config_put_rejects_crossed_bounds(self) -> None:
+        with self.client:
+            response = self.client.put(
+                "/api/v1/risk/config",
+                json={"hr_high": 40, "hr_low": 60, "spo2_low": 94, "temp_high": 38.0},
+            )
+        self.assertEqual(response.status_code, 422)
+
+    def test_patient_risk_returns_envelope_with_history(self) -> None:
+        with self.client:
+            deadline = time.monotonic() + WARMUP_SECONDS
+            while time.monotonic() < deadline and not state.measurements:
+                time.sleep(0.05)
+            # Force an assessment so a snapshot exists.
+            asyncio.run(
+                state._check_alerts(
+                    _measurement(
+                        device_id="node-01",
+                        patient_id="patient-01",
+                        heart_rate_bpm=155.0,
+                    ),
+                    int(time.time() * 1000),
+                )
+            )
+            body = self._get("/api/v1/patients/patient-01/risk")
+        data = body["data"]
+        self.assertEqual(data["patient_id"], "patient-01")
+        # Level may be critical or attention depending on accumulation; both
+        # come from the engine, and the envelope shape is what is pinned here.
+        self.assertIn(data["level"], ("normal", "attention", "critical", "unknown"))
+        self.assertIn("latest_packet_risk", data)
+        self.assertIn("history", data)
+
+    def test_unknown_patient_risk_returns_nulls(self) -> None:
+        with self.client:
+            body = self._get("/api/v1/patients/patient-99/risk")
+        data = body["data"]
+        self.assertIsNone(data["level"])
+        self.assertEqual(data["history"], [])
+
+    def test_risk_snapshots_carry_evidence(self) -> None:
+        """The Phase 6 DoD: every stored risk state is explainable."""
+        with tempfile.TemporaryDirectory() as tmp:
+            saved = state.persistence
+            state.stop()  # detach any live store first
+            state.persistence = Persistence(Path(tmp) / "app.db")
+            state._owns_persistence = False
+            try:
+                # No stop() here: the pre-inject stop already ran, and another
+                # one would close the store we just injected.
+                state._tick_interval = 0.02
+                state._last_risk_level.clear()
+                app2 = create_app()
+                client = TestClient(app2)
+                with client:
+                    asyncio.run(
+                        state._check_alerts(
+                            _measurement(
+                                device_id="node-03",
+                                patient_id="patient-03",
+                                spo2=85.0,
+                            ),
+                            int(time.time() * 1000),
+                        )
+                    )
+                    body = client.get("/api/v1/patients/patient-03/risk")
+                snapshots = body.json()["data"]["history"]
+                self.assertGreater(len(snapshots), 0)
+                for snapshot in snapshots:
+                    self.assertIn("evidence", snapshot)
+                    self.assertIn("explanation", snapshot)
+                    self.assertIn("config_fingerprint", snapshot)
+                    for entry in snapshot["evidence"]:
+                        self.assertIn("rule", entry)
+                        self.assertIn("value", entry)
+                        self.assertIn("bound", entry)
+            finally:
+                state.stop()
+                state.persistence = saved
 
     # -- network metrics -------------------------------------------------------
 

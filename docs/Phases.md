@@ -11,9 +11,16 @@
   local transport and prioritized delivery (ack frame, priority queue, bounded
   retries, gateway acks). Phase 4 — resilient routing and store-and-forward
   (alternate relay, failure-triggered reroute, relay buffering with backfill,
-  failure-scenario harness).
-- **CURRENT PHASE:** Phase 5 — Backend persistence and real-time dashboard (in progress)
-- **NEXT PHASE:** Phase 6 — Edge intelligence
+  failure-scenario harness). Phase 5 — backend persistence and real-time
+  dashboard (FastAPI + SQLite + React/Next.js, envelope contract, WebSocket
+  stream, DB-enforced uniqueness). Phase 6 — local risk scoring and edge
+  intelligence (shared rule-based engine, node-local scoring with critical
+  priority escalation, backend authority with evidence, risk endpoints,
+  dashboard renders backend risk). Phase 7 — security, authentication, and
+  authorization (frame MAC signing/verification, provisioned credentials with
+  revocation, operator token guard in token mode, audit trail).
+- **CURRENT PHASE:** Phase 7 complete; awaiting phase-gate review
+- **NEXT PHASE:** Phase 8 — Evaluation, demo mode, and final documentation
 - **DEFERRED:** physical ESP32/ESP-NOW validation, until hardware is available.
   Deferred by explicit decision on 2026-09-29. No radio result may be claimed
   before it runs on real boards.
@@ -27,10 +34,10 @@ Each phase must be completed, tested, and documented before the next begins. Do 
 | 1 — Foundation | Complete | Contract, fixtures, validator, feasibility spike. Physical gate deferred. |
 | 2 — Sensing & simulator | Complete | Simulated pipeline over an abstract transport. |
 | 3 — Local transport | Complete | Priority queue, acks, bounded retries. |
-| 4 — Resilient routing | Complete | Reroute, store-and-forward, backfill. 120 tests pass. |
-| 5 — Backend & dashboard | **In progress** | FastAPI backend + Next.js dashboard connected to simulator. |
-| 6 — Edge intelligence | Not started | |
-| 7 — Security | Not started | |
+| 4 — Resilient routing | Complete | Reroute, store-and-forward, backfill. |
+| 5 — Backend & dashboard | Complete | FastAPI + SQLite + dashboard. |
+| 6 — Edge intelligence | Complete | Shared risk engine, evidence, endpoints. |
+| 7 — Security | Complete | Frame MAC, credentials, operator guard, audit. 228 tests pass. |
 | 8 — Evaluation & demo | Not started | |
 
 **Terminology guard:** the packet contract defines a `priority` field, but no
@@ -358,6 +365,34 @@ Risk badge, evidence panel, prototype/model disclaimer.
 - Local behavior works without the backend.
 - Any ML result is labeled experimental and measured.
 
+### Status: complete (simulator side) — 2026-10-04
+- `shared/risk/` — one rule-based engine (`assess()`, `RiskConfig`) imported by
+  both the sensor nodes and the backend, so local and authoritative scoring
+  cannot drift. Threshold rules (bounds, points), trend rules (per-minute rates
+  over a window), a quality gate, and evidence on every fired rule.
+- Node-local: each packet now carries a `risk` block scored from the filter
+  window (thresholds + SpO₂ trend); a critical level escalates `priority` to
+  `critical` so alerts queue ahead of routine telemetry (FR-04). Verified:
+  the deteriorating patient escalates normal → critical over a run, while the
+  stable patient stays normal.
+- Backend authority: `_check_alerts` re-scores every accepted measurement with
+  the shared engine (per-patient ~60 s history as trend input); alerts derive
+  from the assessment's evidence; a `risk_snapshots` table (migration 5) records
+  every level change with full evidence, explanation, and config fingerprint;
+  level changes broadcast on the realtime stream.
+- Endpoints: `GET /patients/{id}/risk` (level, packet risk, snapshot history),
+  `GET/PUT /risk/config` (validated; PUT syncs every running node's config so
+  node and backend keep the same rules).
+- Dashboard renders backend risk: packet `risk` block in `deviceToPatient`, a
+  `risk` realtime message handler; the client heuristic remains only as a
+  fallback for measurements without a risk block.
+- Tests: 25 engine (boundaries, trends, gate, determinism, validation) +
+  6 endpoint/snapshot tests; full suite 181, no regressions. Frontend strict
+  TS typecheck passes.
+- **ECG/ML: not attempted, still deferred** per the PRD decision; no model
+  result exists anywhere to label experimental. All thresholds are round demo
+  numbers, not clinical evidence, and the disclaimer stands.
+
 ---
 
 ## Phase 7 — Security, authentication, and authorization
@@ -397,6 +432,37 @@ Login and role-aware navigation if approved.
 - Security baseline tested and documented.
 - No secrets committed or logged.
 - Prototype limitations remain clear.
+
+### Status: complete (simulator + backend) — 2026-10-04
+- `shared/security/`: HMAC-SHA256 frame MAC over the envelope's immutable
+  fields (source, destination, message_id, payload); constant-time comparison;
+  stable reason codes; `DeviceCredentialStore` with provision/revoke/rotate and
+  fail-closed verification. Secrets are memory-only; nothing persists a key.
+- Frame envelope gained an optional `auth` field (64 hex chars, format-checked);
+  relays forward MACs untouched — the MAC covers only immutable fields, so
+  multi-hop forwarding never invalidates it.
+- Nodes sign when `NodeConfig.mac_key` is set; the gateway verifies *before*
+  parsing the payload when a credential store is configured. Unknown, revoked,
+  and wrongly-keyed frames are rejected without an acknowledgement (no oracle
+  for attackers); every rejection reason is counted in gateway stats.
+- Replay signal: a sequence far below the per-device high-water mark is counted,
+  not suppressed — store-and-forward backfill must never be misjudged as a
+  replay (recovery completeness outranks the signal).
+- Dashboard auth decision (documented, per PRD section 11): **lab mode by
+  default, no login**. `BACKEND_AUTH_MODE=token` makes mutations
+  (alert acknowledge, device revoke) require `X-Operator-Token`; an unconfigured
+  token mode fails closed. `/health` reports the mode, never the token.
+- Audit trail: `audit_events` table (migration 6), append-only; every
+  acknowledge/revoke decision (allowed and refused) is recorded without secrets.
+- Mesh authentication is env-gated (`MESH_AUTH=1`) so lab/CI defaults are
+  unchanged; the frontend attaches the operator token from env when set.
+- 47 new tests (33 security unit/mesh + 14 backend guard/audit/revocation);
+  full suite 228, no regressions; frontend strict TS passes.
+- Limits, stated honestly: this is a lab baseline, not a hardened deployment —
+  the demo master key is seed-derived, acks travel unsigned (they carry no
+  telemetry), there is no TLS story yet for backend transport, and per-device
+  key provisioning tooling (rotation workflow, secure distribution) is future
+  work. Nothing here claims production security.
 
 ---
 
