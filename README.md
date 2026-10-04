@@ -7,7 +7,7 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Progress-Phase%207%20Complete-blue.svg)](#-current-status)
+[![Phase](https://img.shields.io/badge/Progress-Phase%208%20Complete%20(All%20Software)-blue.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
@@ -47,8 +47,8 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 
 ## <img src="./assets/rocket_icon.png" width="24" align="center"> Current Status
 
-### Progress: Phase 7 Complete (of 8)
-Seven phases are done, verified by 228 passing tests:
+### Progress: Phase 8 Complete (of 8) — all software phases done
+Eight phases are done, verified by 249 passing tests and a recorded evaluation campaign:
 
 - **Phase 1 (Foundation) — complete:** versioned packet schema, authoritative
   validator with stable error codes, language-neutral conformance fixtures, and a
@@ -79,10 +79,19 @@ Seven phases are done, verified by 228 passing tests:
   mode opt-in, fail-closed when unconfigured), and an append-only audit trail.
   This is a **lab security baseline**, not a production hardening — the demo
   master key is seed-derived and no TLS deployment story exists yet.
+- **Phase 8 (Evaluation) — complete:** a scenario experiment runner with
+  evidence directories (config/raw/summary/notes per session), M-01…M-12
+  computed from recorded runs only, a 40-session recorded campaign, a
+  repeatable demo script, and the final report. See
+  [docs/FinalReport.md](docs/FinalReport.md) and
+  [docs/DemoScript.md](docs/DemoScript.md).
 
 **Not yet built:**
 
-- **Phase 8:** evaluation experiment runner, demo mode, final documentation.
+- **Physical ESP32/ESP-NOW validation** — deferred until hardware is
+  available. Every latency/throughput figure above is a simulated
+  single-clock value; the radio numbers wait for real boards (risk R-21,
+  ESP-NOW's 250-byte frame limit, must be resolved first).
 - Resilience claims are *simulated*: reroute-in-2-seconds and 100% recovery
   completeness are demo observations on one clock, not measured radio results.
   The recorded experiments that turn them into evaluation metrics are Phase 8.

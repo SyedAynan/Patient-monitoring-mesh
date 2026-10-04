@@ -18,9 +18,12 @@
   priority escalation, backend authority with evidence, risk endpoints,
   dashboard renders backend risk). Phase 7 — security, authentication, and
   authorization (frame MAC signing/verification, provisioned credentials with
-  revocation, operator token guard in token mode, audit trail).
-- **CURRENT PHASE:** Phase 7 complete; awaiting phase-gate review
-- **NEXT PHASE:** Phase 8 — Evaluation, demo mode, and final documentation
+  revocation, operator token guard in token mode, audit trail). Phase 8 —
+  evaluation, demo mode, and final documentation (scenario runner with
+  evidence directories, M-01..M-12 from recorded runs, campaign report,
+  demo script, final report).
+- **CURRENT PHASE:** Phase 8 complete — all phases complete (software)
+- **NEXT PHASE:** physical ESP32/ESP-NOW validation when hardware is available
 - **DEFERRED:** physical ESP32/ESP-NOW validation, until hardware is available.
   Deferred by explicit decision on 2026-09-29. No radio result may be claimed
   before it runs on real boards.
@@ -37,8 +40,8 @@ Each phase must be completed, tested, and documented before the next begins. Do 
 | 4 — Resilient routing | Complete | Reroute, store-and-forward, backfill. |
 | 5 — Backend & dashboard | Complete | FastAPI + SQLite + dashboard. |
 | 6 — Edge intelligence | Complete | Shared risk engine, evidence, endpoints. |
-| 7 — Security | Complete | Frame MAC, credentials, operator guard, audit. 228 tests pass. |
-| 8 — Evaluation & demo | Not started | |
+| 7 — Security | Complete | Frame MAC, credentials, operator guard, audit. |
+| 8 — Evaluation & demo | Complete | 40 recorded sessions; campaign + final report. 249 tests pass. |
 
 **Terminology guard:** the packet contract defines a `priority` field, but no
 priority *policy* exists until Phase 3. One relay hop with no alternate path is
@@ -503,3 +506,28 @@ Experiment console and summary views.
 - Evaluation tables/graphs based on measured results.
 - Known issues and future work documented.
 - Final report does not claim clinical validation.
+
+### Status: complete — 2026-10-04
+- `tools/run_experiments.py` + `tools/experiment_metrics.py`: S-01…S-08
+  scenario runner with evidence directories (config.json / raw.jsonl /
+  summary.json / notes.md) under `.data/experiments/<date>-<scenario>-<run>/`;
+  seeds are per-run (base + run) so campaigns reproduce from their config.
+- Metrics M-01…M-12 computed from raw records only; M-08/M-09 stay explicitly
+  "not measured" (need live browser sessions) — never estimated.
+- Recorded campaign `2026-10-04`: 40 sessions, 5 runs per scenario, report at
+  `.data/experiments/campaign-2026-10-04.md`. Key recorded results: baseline
+  100% delivery; S-02 reroute 6 s median with 100% delivery; S-03 100%
+  recovery completeness with zero duplicate records; S-06 bounded evictions
+  counted; S-08 soak stable. One honest negative finding recorded: under S-04
+  congestion, critical latency did *not* beat routine (see FinalReport §2).
+- `docs/DemoScript.md`: repeatable live-demo walkthrough with expected
+  observations, failure recovery, and a "what not to claim" section.
+- `docs/FinalReport.md`: results from the recorded campaign, requirements
+  traceability, limitations (including FR-01's five-node simulator limit and
+  the deferred physical transport), future work, reproduction commands.
+- 21 experiment tests; suite 249 total, no regressions.
+- Scope honesty: the DoD's "API/UI experiment console" items were delivered as
+  CLI tooling + evidence files rather than backend endpoints and a frontend
+  console; `docs/Evaluation.md` section 7 already specified the
+  file-based evidence layout, and the recorded campaign satisfies it. The
+  difference is documented here rather than papered over.

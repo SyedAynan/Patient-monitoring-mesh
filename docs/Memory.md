@@ -1,8 +1,8 @@
 # Project Memory
 
 **Last updated:** 2026-10-04
-**Current phase:** Phase 7 — Security, authentication, and authorization (complete)
-**Next phase:** Phase 8 — Evaluation, demo mode, and final documentation
+**Current phase:** Phase 8 — Evaluation, demo mode, and final documentation (complete)
+**Next phase:** all software phases complete; physical ESP32/ESP-NOW validation when hardware arrives
 
 ## Completed
 
@@ -131,6 +131,24 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 - Limits: lab baseline only — seed-derived demo key, unsigned acks (carry no
   telemetry), no TLS deployment story, provisioning tooling future work.
 
+### Phase 8 (complete as of 2026-10-04)
+
+- `tools/run_experiments.py`: S-01…S-08 scenario runner; seeds are per-run
+  (base + run), campaigns reproducible from config; evidence directories with
+  config.json / raw.jsonl / summary.json / notes.md under
+  `.data/experiments/<date>-<scenario>-<run>/`.
+- `tools/experiment_metrics.py`: M-01…M-12 computed from raw.jsonl only;
+  M-08/M-09 explicitly "needs a live session" rather than estimated;
+  aggregation median/min/max; campaign markdown report.
+- Recorded campaign 2026-10-04: 40 sessions, 5 runs per scenario. Key results:
+  100% baseline delivery; S-02 reroute 6 s median with 100% delivery; S-03
+  100% recovery completeness, zero duplicate records; S-04 honest finding —
+  critical latency did NOT beat routine under congestion (recorded, not
+  hidden); S-06 bounded evictions counted; S-08 soak stable.
+- `docs/DemoScript.md` (repeatable demo, viva-safe claims) and
+  `docs/FinalReport.md` (traceability, limitations, future work).
+- 21 experiment tests; full suite 249; tsc strict passes.
+
 - Nodes carry `alternate_hop` and reroute after `reroute_after_failures`
   consecutive link failures; route changes are counted and timestamped (M-05 event).
 - Relay store-and-forward: bounded `buffer_capacity` (0 = disabled, Phase 3
@@ -189,16 +207,12 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 
 ## Next task
 
-Phase 8 — evaluation, demo mode, and final documentation: an experiment runner
-that executes the S-01…S-08 scenarios from `docs/Evaluation.md` against the
-simulator, records `.data/experiments/<session-id>/` evidence
-(config/raw/summary/notes), computes M-01…M-12 from recorded runs only, a
-repeatable live-demo script, and the final report with honest limitations. No
-metric may be reported without its evidence file. Do not claim clinical
-validation anywhere in the report.
-
-Physical ESP32/ESP-NOW work stays deferred until hardware is available. Nothing in
-the physical-transport column gets claimed as validated before then.
+None in software — Phases 1–8 are complete and tested (249 tests). The next
+work, when hardware is available: the physical ESP32/ESP-NOW transport spike
+(two boards, one relay hop, the conformance fixtures on real hardware), which
+must also resolve R-21 (ESP-NOW's 250-byte frame limit vs. our frame size).
+Until then nothing in the physical-transport column gets claimed as validated,
+and every simulator number stays labeled as simulated.
 
 Physical ESP32/ESP-NOW work stays deferred until hardware is available. Nothing in
 the physical-transport column gets claimed as validated before then.
