@@ -163,7 +163,7 @@ export function AnatomicalBodyHologram({
               key={vKey}
               onClick={() => {
                 monitorAudio.playScanSound()
-                setActiveMarker(activeMarker === vKey ? null : vKey)
+                handleMarkerClick(vKey)
               }}
               className={`flex-1 py-1 rounded-lg transition-all text-center uppercase font-mono ${
                 activeMarker === vKey

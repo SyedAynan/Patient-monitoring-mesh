@@ -1,8 +1,8 @@
 # Project Memory
 
-**Last updated:** 2026-10-02
-**Current phase:** Phase 4 — Resilient routing and store-and-forward (complete)
-**Next phase:** Phase 5 — Backend persistence and real-time dashboard
+**Last updated:** 2026-10-04
+**Current phase:** Phase 5 — Backend persistence and real-time dashboard (complete)
+**Next phase:** Phase 6 — Local risk scoring and edge intelligence
 
 ## Completed
 
@@ -67,7 +67,30 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 - Retry benefit measured in-sim: 19%/50%/73% delivery at 1/3/6 attempts under 40%
   loss (simulated numbers, not evaluation metrics).
 
-### Phase 4 (complete as of 2026-10-02)
+### Phase 5 (complete as of 2026-10-04)
+
+- FastAPI backend in `backend/app/`: envelope contract on every v1 route
+  (devices, measurements history, alerts + acknowledge, network metrics),
+  WebSocket realtime stream, `/health`.
+- The backend runs the Phase 2–4 simulator mesh in-process as its data source
+  (documented simplification of MQTT, risk R-09); a 1 s tick loop harvests
+  measurements, threshold alerts, and network events, and broadcasts them.
+- SQLite persistence in `backend/app/persistence.py`: 4 numbered migrations,
+  `UNIQUE (device_id, sequence_number)` enforcing FR-05 at the database,
+  INSERT OR IGNORE for replay, history served from the DB. `APP_DATA_DIR`
+  (default `.data/app.db`); `REMPM_DISABLE_DB=1` for tests/CI.
+- React + TypeScript dashboard (v0-generated, then integrated): patient cards,
+  trends, alerts, network view, realtime stream with reconnect, demo/anomaly
+  mode. Strict TS typecheck passes. `frontend_backup/` is a pre-integration
+  copy, not part of the product.
+- Later additions by the user's own flow: 3D digital-twin patient view
+  (Three.js/R3F), hardware-signal radar, realtime diagnostics panel, audio
+  cues, ECG canvas.
+- Tests: 13 API contract + 15 persistence + 2 DB-integration; full suite 150,
+  no regressions. Tests set `REMPM_DISABLE_DB=1` so they never touch `.data/`.
+- Known limits: alert latency (M-03/M-09) not computed; auth deferred (Phase 7);
+  no MQTT broker; frontend risk score is a client-side heuristic and is *not*
+  the authoritative risk state (that is Phase 6, server-side).
 
 - Nodes carry `alternate_hop` and reroute after `reroute_after_failures`
   consecutive link failures; route changes are counted and timestamped (M-05 event).
