@@ -102,7 +102,30 @@ Eight phases are done, verified by 249 passing tests and a recorded evaluation c
 > this repository comes from a simulated link on a single clock and is **not** a
 > measured network result.
 
-## <img src="./assets/tools_icon.png" width="24" align="center"> Setup & Development
+## <img src="./assets/tools_icon.png" width="24" align="center"> One-Click Setup
+
+**Windows:** double-click **`INSTALL.bat`** once, then **`START.bat`** any time.
+**macOS / Linux:** run `./install.sh` once, then `./start.sh`.
+
+That is the whole setup. The scripts create a Python virtual environment,
+install the backend and frontend dependencies, launch the backend
+(`http://127.0.0.1:8000`) and the dashboard (`http://localhost:3000`), and
+open a browser tab. Requirements: **Python 3.10+** and **Node.js 18+**.
+
+**Install it as a phone app:** open `http://localhost:3000` on your phone
+(same Wi-Fi, replace `localhost` with your computer's LAN IP), then use the
+browser's **"Add to Home Screen" / "Install app"** — the dashboard is a PWA
+and launches full-screen, black-themed, like a native app. Installability
+shows in Chrome's address bar on desktop too.
+
+Manual setup, if you prefer:
+
+```bash
+python -m venv .venv && .venv/Scripts/activate   # or source .venv/bin/activate
+pip install -r backend/requirements.txt
+python -m uvicorn backend.app.main:create_app --factory --host 127.0.0.1 --port 8000
+cd frontend && npm install && npm run dev
+```
 
 Our current stack relies heavily on the Python standard library for simulation and protocol validation. To get started and run the existing components:
 

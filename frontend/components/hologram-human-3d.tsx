@@ -1,8 +1,8 @@
 'use client'
 
-import { Suspense, useMemo, useRef, useCallback, useEffect } from 'react'
+import { Suspense, useMemo, useRef, useCallback, useEffect, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useGLTF, OrbitControls, Sparkles } from '@react-three/drei'
+import { useGLTF, OrbitControls, Sparkles, useAnimations } from '@react-three/drei'
 import { SkeletonUtils } from 'three-stdlib'
 import * as THREE from 'three'
 
@@ -232,15 +232,16 @@ function MarkerScreenPositionTracker({
 // FULL-BODY CONTINUOUS 3D HUMAN DIGITAL TWIN GLTF MODEL (WITH SKELETONUTILS)
 // ---------------------------------------------------------------------------
 function HumanGlbModel({
-  hr, spo2, rr, temp, activeMarker, onMarkerClick, getVitalStatus, labelRefs,
+  hr, spo2, rr, temp, activeMarker, onMarkerClick, getVitalStatus, labelRefs, renderMode,
 }: {
   hr: number; spo2: number; rr: number; temp: number
   activeMarker?: string | null
   onMarkerClick?: (vital: 'hr' | 'spo2' | 'rr' | 'temp') => void
   getVitalStatus?: (vital: 'hr' | 'spo2' | 'rr' | 'temp') => VitalStatus
   labelRefs?: React.RefObject<Record<string, HTMLDivElement | null>>
+  renderMode: 'hologram' | 'realistic'
 }) {
-  const { scene } = useGLTF('/human-model.glb')
+  const { scene, animations } = useGLTF('/human-model.glb')
   const scanBeamRef = useRef<THREE.Mesh>(null)
   const heartRef = useRef<THREE.Group>(null)
   const leftLungRef = useRef<THREE.Mesh>(null)
@@ -286,6 +287,7 @@ function HumanGlbModel({
         uColor: { value: new THREE.Color('#0284c7') },
         uEdgeColor: { value: new THREE.Color('#38bdf8') },
         uOpacity: { value: 0.52 },
+        uPulse: { value: 0 },
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -306,6 +308,7 @@ function HumanGlbModel({
         uniform vec3 uColor;
         uniform vec3 uEdgeColor;
         uniform float uOpacity;
+        uniform float uPulse;   // 0..1 heartbeat envelope, driven by HR
         varying vec3 vNormal;
         varying vec3 vViewDir;
         varying vec2 vUv;
@@ -313,16 +316,26 @@ function HumanGlbModel({
         void main() {
           float fresnel = 1.0 - abs(dot(vNormal, vViewDir));
           fresnel = pow(fresnel, 2.0);
-          
+
+          // Fine scanlines plus a wide bright band sweeping upward: the sweep is
+          // what reads as "being scanned" rather than a static tint.
           float scanline = smoothstep(0.48, 0.5, fract(vY * 40.0 + uTime * 0.8));
           float gridH = smoothstep(0.48, 0.5, fract(vY * 18.0));
-          
+          float sweepPos = fract(uTime * 0.16);
+          float sweep = smoothstep(0.06, 0.0, abs(fract(vY * 0.28) - sweepPos));
+
           vec3 baseColor = mix(uColor * 0.5, uColor, 0.5 + scanline * 0.25);
-          vec3 rimColor = uEdgeColor * (1.8 + sin(uTime * 2.0) * 0.3);
+          vec3 rimColor = uEdgeColor * (1.8 + uPulse * 0.9 + sin(uTime * 2.0) * 0.3);
           vec3 finalColor = mix(baseColor, rimColor, fresnel);
           finalColor += uEdgeColor * gridH * 0.10;
-          
-          float alpha = uOpacity * (0.30 + fresnel * 0.70) + scanline * 0.05;
+          finalColor += uEdgeColor * sweep * 0.55;
+
+          // Alpha carries the same structure, so the sweep shows as a lighter
+          // band rather than only a colour change.
+          float alpha = uOpacity * (0.30 + fresnel * 0.70)
+                      + scanline * 0.05
+                      + sweep * 0.22
+                      + uPulse * fresnel * 0.12;
           gl_FragColor = vec4(finalColor, alpha);
         }
       `,
@@ -342,13 +355,41 @@ function HumanGlbModel({
     })
   }, [])
 
+  // Capture the model's own materials once, so the realistic toggle can restore
+  // them instead of the hologram shader. (The GLB ships no textures — two flat
+  // untextured Mixamo materials — which is why the hologram treatment is the
+  // default and why a skin-toned fallback is used when restoring.)
+  const originalMaterials = useMemo(() => {
+    const map = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>()
+    clonedScene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        map.set(child as THREE.Mesh, (child as THREE.Mesh).material)
+      }
+    })
+    return map
+  }, [clonedScene])
+
+  // Fallback tint for meshes the GLB shipped without a material. The asset's
+  // own materials are flat untextured reds, so a skin-ish tone reads better
+  // than reproducing them exactly.
+  const skinMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#c99b7c',
+    roughness: 0.62,
+    metalness: 0.02,
+  }), [])
+
   useEffect(() => {
     clonedScene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
-        (child as THREE.Mesh).material = holoMaterial
+        const mesh = child as THREE.Mesh
+        if (renderMode === 'realistic') {
+          mesh.material = originalMaterials.get(mesh) ?? skinMaterial
+        } else {
+          mesh.material = holoMaterial
+        }
       }
     })
-  }, [clonedScene, holoMaterial])
+  }, [clonedScene, holoMaterial, skinMaterial, originalMaterials, renderMode])
 
   useEffect(() => {
     wireScene.traverse((child) => {
@@ -357,6 +398,30 @@ function HumanGlbModel({
       }
     })
   }, [wireScene, wireMaterial])
+
+  // The GLB ships 7 skeletal animations (idle, walk, run, ...). Playing `idle`
+  // on the cloned rig gives the body a real breathing/postural motion instead
+  // of a frozen mesh — and its speed is modulated by the patient's respiratory
+  // rate, so the figure visibly breathes at the telemetry's rate.
+  const { actions: bodyActions } = useAnimations(animations, clonedScene)
+
+  useEffect(() => {
+    const idle = bodyActions?.idle
+    if (!idle) return
+    idle.reset().fadeIn(0.4).play()
+    return () => {
+      idle.fadeOut(0.3)
+    }
+  }, [bodyActions])
+
+  useEffect(() => {
+    const idle = bodyActions?.idle
+    if (!idle) return
+    // 15 breaths/min is the nominal rate; scale the clip proportionally and
+    // clamp so an extreme reading cannot make the motion absurd.
+    const rate = Math.max(0.4, Math.min(2.2, rr / 15))
+    idle.setEffectiveTimeScale(rate)
+  }, [bodyActions, rr])
 
   const organMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#f43f5e',
@@ -377,6 +442,12 @@ function HumanGlbModel({
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime()
     holoMaterial.uniforms.uTime.value = t
+    // Heartbeat envelope for the shader: a sharp systolic spike that decays,
+    // so the hologram's rim brightens in time with the displayed HR.
+    const beatFreq = (hr / 60) * Math.PI * 2
+    const beatPhase = (t * beatFreq) % (Math.PI * 2)
+    const envelope = Math.max(0, 1 - beatPhase / 0.9)
+    holoMaterial.uniforms.uPulse.value = envelope * envelope
 
     // Heartbeat pulse animation based on hr
     if (heartRef.current) {
@@ -408,6 +479,8 @@ function HumanGlbModel({
       {/* 1. Main Continuous 3D Human Body (Hologram Shader) */}
       <primitive object={clonedScene} scale={targetScale} position={[0, targetY, 0]} />
 
+      {renderMode === 'hologram' && (
+        <>
       {/* 2. Wireframe Overlay Mesh */}
       <primitive object={wireScene} scale={targetScale * 1.002} position={[0, targetY, 0]} />
 
@@ -455,6 +528,8 @@ function HumanGlbModel({
         <ringGeometry args={[0.46, 0.49, 64]} />
         <meshBasicMaterial color="#67e8f9" transparent opacity={0.4} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
+        </>
+      )}
 
       {/* 4. Vital Sensor Markers */}
       {(Object.keys(VITAL_POSITIONS) as Array<'hr' | 'spo2' | 'rr' | 'temp'>).map((key) => {
@@ -610,6 +685,12 @@ export function HologramHuman3D({
   const labelRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const values: Record<string, number> = useMemo(() => ({ hr, spo2, rr, temp }), [hr, spo2, rr, temp])
 
+  // The GLB ships no textures and only flat Mixamo materials, so "realistic"
+  // renders a plain mannequin. The hologram treatment is the default: it is
+  // what this asset actually supports, and it presents the patient clearly.
+  // The realistic tint remains available as a toggle for comparison.
+  const [renderMode, setRenderMode] = useState<'hologram' | 'realistic'>('hologram')
+
   const handleResetView = useCallback(() => {
     if (controlsRef.current) controlsRef.current.reset()
     onMarkerClick?.(null as any)
@@ -645,10 +726,17 @@ export function HologramHuman3D({
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-500/60">DIGITAL TWIN · LIVE</p>
       </div>
 
-      {/* Top-right status indicator */}
-      <div className="absolute top-3 right-4 z-[2] pointer-events-none flex items-center gap-1.5">
+      {/* Top-right status indicator + render-mode toggle */}
+      <div className="absolute top-3 right-4 z-[3] flex items-center gap-2">
         <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
         <span className="font-mono text-[10px] font-bold text-cyan-500/60 uppercase">3D ACTIVE</span>
+        <button
+          onClick={() => setRenderMode(m => (m === 'realistic' ? 'hologram' : 'realistic'))}
+          className="ml-1 rounded-md border border-cyan-500/25 bg-black/50 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-cyan-300 transition-colors hover:bg-cyan-500/10"
+          aria-label={renderMode === 'realistic' ? 'Switch to hologram view' : 'Switch to realistic view'}
+        >
+          {renderMode === 'realistic' ? 'Realistic' : 'Hologram'}
+        </button>
       </div>
 
       <Canvas
@@ -657,17 +745,32 @@ export function HologramHuman3D({
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         style={{ touchAction: 'none' }}
       >
-        <color attach="background" args={['#010612']} />
+        <color attach="background" args={[renderMode === 'realistic' ? '#0a0a0a' : '#010612']} />
 
-        <ambientLight intensity={0.6} />
-        <pointLight position={[0, 2.5, 3]} intensity={12} color="#38bdf8" distance={8} />
-        <pointLight position={[0, -1, -2.5]} intensity={5} color="#0284c7" distance={6} />
-        <pointLight position={[-2.5, 1, 1.5]} intensity={4} color="#0e7490" distance={6} />
-        <pointLight position={[2.5, 1.5, 0]} intensity={3} color="#06b6d4" distance={5} />
-        <pointLight position={[0, -0.5, 1]} intensity={2} color="#164e63" distance={4} />
+        {/* Realistic mode gets neutral three-point lighting so skin reads as
+            skin; hologram mode keeps the cyan studio wash. */}
+        {renderMode === 'realistic' ? (
+          <>
+            <ambientLight intensity={0.55} />
+            <directionalLight position={[2, 3.2, 3]} intensity={2.6} color="#fff6ec" />
+            <directionalLight position={[-2.6, 1.4, 1.8]} intensity={0.9} color="#cfe6ff" />
+            <directionalLight position={[0, -1.2, -2.4]} intensity={0.5} color="#8fb4d8" />
+          </>
+        ) : (
+          <>
+            <ambientLight intensity={0.6} />
+            <pointLight position={[0, 2.5, 3]} intensity={12} color="#38bdf8" distance={8} />
+            <pointLight position={[0, -1, -2.5]} intensity={5} color="#0284c7" distance={6} />
+            <pointLight position={[-2.5, 1, 1.5]} intensity={4} color="#0e7490" distance={6} />
+            <pointLight position={[2.5, 1.5, 0]} intensity={3} color="#06b6d4" distance={5} />
+            <pointLight position={[0, -0.5, 1]} intensity={2} color="#164e63" distance={4} />
+          </>
+        )}
 
-        <Sparkles count={30} scale={3} size={1.2} speed={0.25} color="#38bdf8" opacity={0.4} />
-        <HolographicPlatform />
+        {renderMode === 'hologram' && (
+          <Sparkles count={30} scale={3} size={1.2} speed={0.25} color="#38bdf8" opacity={0.4} />
+        )}
+        {renderMode === 'hologram' && <HolographicPlatform />}
 
         <Suspense fallback={<HologramLoadingHud />}>
           <HumanGlbModel
@@ -676,6 +779,7 @@ export function HologramHuman3D({
             onMarkerClick={onMarkerClick}
             getVitalStatus={getVitalStatus}
             labelRefs={labelRefs}
+            renderMode={renderMode}
           />
         </Suspense>
 

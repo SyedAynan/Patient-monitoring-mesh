@@ -21,7 +21,8 @@ import { monitorAudio } from '@/lib/audio'
 import { ECGWaveformCanvas } from './ecg-canvas'
 import { RiskScoreGauge } from './risk-gauge'
 import { AnatomicalBodyHologram } from './anatomical-body'
-import { HardwareSignalRadar } from './hardware-signal-radar'
+import { HardwareSignalRadar, type HardwareNode } from './hardware-signal-radar'
+import { RealtimeDiagnosticsPanel } from './realtime-diagnostics'
 
 // ---------------------------------------------------------------------------
 // Derived types — preserved from original
@@ -673,6 +674,34 @@ export default function MonitoringDashboard() {
   const patientStatusLabel = selected.status === 'attention' ? 'Monitoring' : selected.status === 'stale' ? 'Stale' : 'Stable'
   const patientStatusClass = selected.status === 'attention' ? 'status-badge attention' : selected.status === 'stale' ? 'status-badge stale' : 'status-badge online'
 
+  // Live radar nodes: one per patient device, positioned stably by device id,
+  // with real status/signal from the mesh. `signal` arrives as a 0-100 quality
+  // score, so RSSI/SNR are mapped from that scale into plausible radio units.
+  // Radio-style metrics remain simulated until hardware exists.
+  const radarNodes: HardwareNode[] = patients.map((p, i) => {
+    const golden = i * 2.39996323  // golden-angle spacing keeps blips apart
+    const quality = Math.max(0, Math.min(100, p.signal))
+    return {
+      id: p.deviceId,
+      name: p.deviceId,
+      patientId: p.id,
+      room: p.room,
+      angle: golden % (Math.PI * 2),
+      distance: 0.3 + ((i * 0.37) % 0.5),
+      rssi: Math.max(-85, Math.min(-30, -40 - Math.round((100 - quality) * 0.4))),
+      battery: Math.max(20, Math.round(quality)),
+      status: p.status === 'stale' ? 'offline' : p.status === 'attention' ? 'warning' : 'online',
+      packetsPerSec: 1,
+      latencyMs: p.lastSeen > 0 ? p.lastSeen * 1000 : Math.max(1, Math.round((100 - quality) / 10)),
+      snrDb: Math.round(quality * 0.35),
+      frequencyGHz: 2.412,
+      chipset: 'ESP32-S3 (simulated)',
+      firmware: 'sim',
+      uwbDistanceM: 0,
+      respirationDisplacementMm: 0,
+    }
+  })
+
   // Signal quality label
   const signalLabel = selected.signal > 90 ? 'Excellent' : selected.signal > 70 ? 'Good' : selected.signal > 50 ? 'Fair' : 'Poor'
 
@@ -682,7 +711,7 @@ export default function MonitoringDashboard() {
   const meshStatus = connected ? 'Healthy' : 'Degraded'
 
   return (
-    <div className="h-screen overflow-hidden bg-background text-foreground font-sans antialiased flex flex-col">
+    <div className="min-h-screen bg-background text-foreground font-sans antialiased flex flex-col overflow-x-hidden">
 
       {/* ==================================================================== */}
       {/* 1. GLOBAL HEADER — Clean Top Navigation                              */}
@@ -705,15 +734,15 @@ export default function MonitoringDashboard() {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <nav className="hidden sm:flex items-center gap-0.5 rounded-lg border border-border bg-background/50 p-0.5" role="tablist" aria-label="Main navigation">
+        {/* Navigation Tabs — scrollable strip, visible at every width incl. phones */}
+        <nav className="flex items-center gap-0.5 overflow-x-auto rounded-lg border border-border bg-background/50 p-0.5 max-w-full" role="tablist" aria-label="Main navigation">
           {(['Overview', 'Patients', 'Devices', 'Analytics', 'Settings'] as const).map(tab => (
             <button
               key={tab}
               role="tab"
               aria-selected={activeTab === tab}
               onClick={() => handleTabChange(tab)}
-              className={`rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
+              className={`shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:px-3 ${
                 activeTab === tab
                   ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'
                   : 'text-slate-500 hover:text-slate-300 border border-transparent'
@@ -791,7 +820,7 @@ export default function MonitoringDashboard() {
       {/* ==================================================================== */}
       {/* 2. SYSTEM HEALTH BAR — Compact infrastructure status strip           */}
       {/* ==================================================================== */}
-      <div className="flex-shrink-0 flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5 text-[11px] font-mono" style={{ background: 'rgba(11,17,32,0.8)' }}>
+      <div className="flex-shrink-0 flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5 text-[11px] font-mono" style={{ background: 'rgba(10,10,10,0.85)' }}>
         <div className="flex items-center gap-1.5">
           <Radio className="size-3 text-emerald-400" />
           <span className="text-slate-400">Sensors</span>
@@ -861,9 +890,9 @@ export default function MonitoringDashboard() {
       </div>
 
       {/* ==================================================================== */}
-      {/* Main 3-Column Dashboard Grid                                        */}
+      {/* Main 3-Column Dashboard Grid — stacks to one column on phones/tablets */}
       {/* ==================================================================== */}
-      <div className="flex-1 min-h-0 grid gap-2.5 p-2.5 lg:grid-cols-[240px_1fr_340px] xl:grid-cols-[250px_1fr_380px] dashboard-grid-main" style={{ maxHeight: 'calc(100vh - 88px)' }}>
+      <div className="flex-1 min-h-0 grid gap-2.5 p-2.5 grid-cols-1 lg:grid-cols-[240px_1fr_340px] xl:grid-cols-[250px_1fr_380px] dashboard-grid-main">
 
         {/* ------------------------------------------------------------------ */}
         {/* 3. LEFT SIDEBAR — Patient Navigation                               */}
@@ -930,20 +959,179 @@ export default function MonitoringDashboard() {
             })}
           </div>
 
-          {/* Hardware Signal Radar Component — Bottom of Sidebar */}
-          <div className="mt-auto flex-shrink-0 pt-2 border-t border-border">
-            <HardwareSignalRadar
-              selectedPatientId={selected?.id}
-              onSelectPatient={handleSelectPatient}
-            />
-          </div>
+          {/* Hardware Signal Radar — sidebar slot; moves to the center when the
+              Devices tab is active so it gets real estate */}
+          {activeTab !== 'Devices' && (
+            <div className="mt-auto flex-shrink-0 pt-2 border-t border-border">
+              <HardwareSignalRadar
+                nodes={radarNodes}
+                selectedPatientId={selected?.id}
+                onSelectPatient={handleSelectPatient}
+              />
+            </div>
+          )}
         </aside>
 
         {/* ------------------------------------------------------------------ */}
         {/* CENTER COLUMN — Patient Telemetry & Charts                         */}
         {/* ------------------------------------------------------------------ */}
         <main className="flex flex-col gap-2.5 min-h-0 overflow-y-auto dashboard-scroll" role="main">
-          {selected && (
+
+          {/* ============================================================ */}
+          {/* DEVICES TAB — full-size radar + diagnostics + network        */}
+          {/* ============================================================ */}
+          {activeTab === 'Devices' && selected && (
+            <div className="grid gap-2.5 md:grid-cols-2">
+              <div className="panel p-3.5" role="region" aria-label="Hardware signal radar">
+                <h3 className="section-title text-sm font-semibold text-white mb-2">Signal Radar</h3>
+                <HardwareSignalRadar
+                  nodes={radarNodes}
+                  selectedPatientId={selected?.id}
+                  onSelectPatient={handleSelectPatient}
+                />
+              </div>
+              <div className="panel p-3.5" role="region" aria-label="Realtime diagnostics">
+                <h3 className="section-title text-sm font-semibold text-white mb-2">Realtime Diagnostics</h3>
+                <RealtimeDiagnosticsPanel patient={selected} />
+              </div>
+              {networkMetrics && (
+                <div className="panel p-3.5 md:col-span-2" role="region" aria-label="Network metrics">
+                  <h3 className="section-title text-sm font-semibold text-white mb-2">Mesh Network</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
+                    <div className="flex flex-col gap-0.5 rounded-lg border border-border p-2" style={{ background: 'var(--background)' }}>
+                      <span className="text-[9px] text-slate-500 uppercase tracking-wider">Nodes</span>
+                      <span className="font-semibold text-slate-200">{networkMetrics.nodes_online}/{networkMetrics.nodes_total} online</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 rounded-lg border border-border p-2" style={{ background: 'var(--background)' }}>
+                      <span className="text-[9px] text-slate-500 uppercase tracking-wider">Delivery ratio</span>
+                      <span className="font-semibold text-cyan-300">{networkMetrics.delivery_ratio ?? '—'}%</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 rounded-lg border border-border p-2" style={{ background: 'var(--background)' }}>
+                      <span className="text-[9px] text-slate-500 uppercase tracking-wider">Alert p50</span>
+                      <span className="font-semibold text-slate-200">{networkMetrics.alert_latency_ms_p50 != null ? `${networkMetrics.alert_latency_ms_p50} ms` : '—'}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 rounded-lg border border-border p-2" style={{ background: 'var(--background)' }}>
+                      <span className="text-[9px] text-slate-500 uppercase tracking-wider">Events</span>
+                      <span className="font-semibold text-slate-200">{networkMetrics.recent_events.length}</span>
+                    </div>
+                  </div>
+                  {networkMetrics.recent_events.length > 0 && (
+                    <ul className="mt-2 flex flex-col gap-1 text-[10px] font-mono max-h-32 overflow-y-auto dashboard-scroll">
+                      {networkMetrics.recent_events.slice(0, 12).map(ev => (
+                        <li key={ev.event_id} className="flex items-center gap-2 text-slate-400">
+                          <span className={`size-1.5 rounded-full ${ev.type === 'route_change' ? 'bg-amber-400' : ev.type === 'buffer_backfill' ? 'bg-cyan-400' : 'bg-emerald-400'}`} />
+                          <span className="text-slate-300">{ev.type}</span>
+                          <span className="text-slate-500">{ev.device_id}</span>
+                          <span className="text-slate-600 truncate flex-1">{ev.detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* ANALYTICS TAB — mesh-wide view from live state                */}
+          {/* ============================================================ */}
+          {activeTab === 'Analytics' && (
+            <div className="grid gap-2.5 md:grid-cols-2">
+              <div className="panel p-3.5" role="region" aria-label="Patient status summary">
+                <h3 className="section-title text-sm font-semibold text-white mb-2">Patient Status</h3>
+                <div className="flex flex-col gap-1.5 text-[11px] font-mono">
+                  {patients.map(p => (
+                    <div key={p.id} className="flex items-center justify-between rounded-lg border border-border px-2.5 py-1.5" style={{ background: 'var(--background)' }}>
+                      <span className="text-slate-300">{p.id.replace('patient-', 'P-00')} · {p.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-500">HR {p.hr}</span>
+                        <span className="text-slate-500">SpO₂ {p.spo2}%</span>
+                        <span className={`font-semibold ${p.riskScore > 50 ? 'text-rose-400' : p.riskScore > 25 ? 'text-amber-400' : 'text-emerald-400'}`}>{p.riskScore}/100</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="panel p-3.5" role="region" aria-label="Alert log">
+                <h3 className="section-title text-sm font-semibold text-white mb-2">Alert Log</h3>
+                {alerts.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 font-mono">No alerts raised.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1 text-[10px] font-mono max-h-64 overflow-y-auto dashboard-scroll">
+                    {alerts.slice(0, 20).map(a => (
+                      <li key={a.alert_id} className="flex items-center gap-2 text-slate-400">
+                        <span className={`size-1.5 rounded-full ${a.severity === 'critical' ? 'bg-rose-400' : 'bg-amber-400'}`} />
+                        <span className={a.severity === 'critical' ? 'text-rose-300' : 'text-amber-300'}>{a.severity}</span>
+                        <span className="text-slate-300 truncate flex-1">{a.message}</span>
+                        <span className={a.acknowledged_at_ms ? 'text-emerald-400' : 'text-slate-600'}>{a.acknowledged_at_ms ? 'ACK' : 'OPEN'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="panel p-3.5 md:col-span-2" role="region" aria-label="System summary">
+                <h3 className="section-title text-sm font-semibold text-white mb-2">System</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
+                  <div className="flex flex-col gap-0.5"><span className="text-[9px] text-slate-500 uppercase tracking-wider">Mode</span><span className="font-semibold text-cyan-300">{dataMode === 'demo' ? 'Demo (simulated)' : 'Live hardware'}</span></div>
+                  <div className="flex flex-col gap-0.5"><span className="text-[9px] text-slate-500 uppercase tracking-wider">Gateway</span><span className={`font-semibold ${connected ? 'text-emerald-400' : 'text-rose-400'}`}>{connected ? 'Connected' : 'Reconnecting'}</span></div>
+                  <div className="flex flex-col gap-0.5"><span className="text-[9px] text-slate-500 uppercase tracking-wider">Patients</span><span className="font-semibold text-slate-200">{patients.length}</span></div>
+                  <div className="flex flex-col gap-0.5"><span className="text-[9px] text-slate-500 uppercase tracking-wider">Active alerts</span><span className={`font-semibold ${activeAlerts.length > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>{activeAlerts.length}</span></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* SETTINGS TAB — controls consolidated                          */}
+          {/* ============================================================ */}
+          {activeTab === 'Settings' && (
+            <div className="grid gap-2.5 md:grid-cols-2 max-w-3xl">
+              <div className="panel p-3.5" role="region" aria-label="Data mode">
+                <h3 className="section-title text-sm font-semibold text-white mb-2">Data Source</h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setDataMode('demo')}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${dataMode === 'demo' ? 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300' : 'border-border text-slate-400 hover:text-slate-200'}`}
+                    aria-pressed={dataMode === 'demo'}
+                  >Demo mode (simulated telemetry)</button>
+                  <button
+                    onClick={() => setDataMode('real')}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${dataMode === 'real' ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-border text-slate-400 hover:text-slate-200'}`}
+                    aria-pressed={dataMode === 'real'}
+                  >Live hardware (backend mesh)</button>
+                </div>
+                {dataMode === 'real' && (
+                  <button
+                    onClick={connectUsbSerial}
+                    className={`mt-2 w-full rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${serialConnected ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-cyan-500/20 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/12'}`}
+                  >{serialConnected ? 'USB Connected' : 'Connect USB Serial'}</button>
+                )}
+              </div>
+              <div className="panel p-3.5" role="region" aria-label="Presentation">
+                <h3 className="section-title text-sm font-semibold text-white mb-2">Presentation</h3>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={toggleSound}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${soundEnabled ? 'border-cyan-500/20 bg-cyan-500/8 text-cyan-300' : 'border-border text-slate-400'}`}
+                    aria-pressed={soundEnabled}
+                  >{soundEnabled ? 'Alert audio: on' : 'Alert audio: muted'}</button>
+                  <div className="flex items-center gap-1 rounded-lg border border-border bg-background/50 p-1" role="radiogroup" aria-label="Chart time range">
+                    {(['LIVE', '1H', '6H', '12H', '24H'] as const).map(range => (
+                      <button
+                        key={range}
+                        role="radio"
+                        aria-checked={timeRange === range}
+                        onClick={() => setTimeRange(range)}
+                        className={`flex-1 rounded-md px-2 py-1.5 text-[10px] font-medium transition-colors ${timeRange === range ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
+                      >{range}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(activeTab === 'Overview' || activeTab === 'Patients') && selected && (
             <>
               {/* ============================================================ */}
               {/* 4. PATIENT HEADER — Selected patient context                  */}
@@ -1194,7 +1382,7 @@ export default function MonitoringDashboard() {
                   <div 
                     className="absolute inset-0 opacity-15 pointer-events-none" 
                     style={{ 
-                      backgroundImage: 'linear-gradient(rgba(148, 163, 184, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, 0.15) 1px, transparent 1px)',
+                      backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px)',
                       backgroundSize: '24px 24px'
                     }}
                     aria-hidden="true"
@@ -1439,7 +1627,7 @@ export default function MonitoringDashboard() {
         {/* ------------------------------------------------------------------ */}
         {/* 7. RIGHT COLUMN — Patient Visualization & Anatomical Model         */}
         {/* ------------------------------------------------------------------ */}
-        {selected && (
+        {activeTab === 'Overview' && selected && (
           <aside className="hidden lg:flex flex-col min-h-0 overflow-hidden" role="complementary" aria-label="Patient visualization">
             <AnatomicalBodyHologram
               patientId={selected.id.replace('patient-', 'P-00')}

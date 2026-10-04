@@ -79,6 +79,37 @@ export function HardwareSignalRadar({
   const sweepAngleRef = useRef<number>(0)
   const blipRipplesRef = useRef<Record<string, { alpha: number; radius: number }>>({})
 
+  // Responsive canvas sizing: the container is measured (ResizeObserver), and
+  // each canvas's backing store is scaled by devicePixelRatio for crisp lines.
+  // Render loops read logical CSS pixels via canvas.clientWidth after applying
+  // a DPR transform — see the setTransform prefix in each render loop.
+  const canvasWrapRef = useRef<HTMLDivElement | null>(null)
+  const [canvasView, setCanvasView] = useState({ w: 240, h: 115, bioH: 26 })
+  useEffect(() => {
+    const el = canvasWrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const w = Math.max(180, Math.min(640, el.clientWidth))
+      setCanvasView({
+        w,
+        // Near-square so the polar plot reads as a circle, not an ellipse.
+        h: Math.round(Math.min(260, Math.max(120, w * 0.72))),
+        bioH: Math.round(Math.min(40, Math.max(22, w * 0.11))),
+      })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  // devicePixelRatio is client-only: reading it during the first render makes
+  // the SSR'd canvas attributes mismatch (hydration error). It becomes state
+  // after mount, so server and first client render agree at dpr=1.
+  const [dpr, setDpr] = useState(1)
+  useEffect(() => {
+    setDpr(Math.min(2, window.devicePixelRatio || 1))
+  }, [])
+
   // Currently selected node
   const activeNode = useMemo(() => {
     return nodes.find(n => n.patientId === selectedPatientId) || nodes[0]
@@ -141,11 +172,12 @@ export function HardwareSignalRadar({
     let animationId: number
 
     const render = () => {
-      const width = canvas.width
-      const height = canvas.height
+      const width = canvas.clientWidth || canvas.width
+      const height = canvas.clientHeight || canvas.height
       const centerX = width / 2
       const centerY = height / 2
       const maxRadius = Math.min(centerX, centerY) - 10
+      ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0)
 
       ctx.clearRect(0, 0, width, height)
 
@@ -297,12 +329,12 @@ export function HardwareSignalRadar({
         ctx.fill()
         ctx.shadowBlur = 0
 
-        // Label text & RSSI readout
-        ctx.fillStyle = isSelected ? '#ffffff' : 'rgba(226, 232, 240, 0.8)'
-        ctx.font = isSelected ? 'bold 9px monospace' : '8px monospace'
-        ctx.fillText(`${node.room}`, nodeX + 8, nodeY + 2)
-
+        // Label text & RSSI readout — only the selected node is labeled on the
+        // canvas; labeling every blip made the text collide at small sizes.
         if (isSelected) {
+          ctx.fillStyle = '#ffffff'
+          ctx.font = 'bold 9px monospace'
+          ctx.fillText(`${node.room}`, nodeX + 8, nodeY + 2)
           ctx.fillStyle = '#38bdf8'
           ctx.font = '7px monospace'
           ctx.fillText(`${node.rssi}dBm`, nodeX + 8, nodeY + 10)
@@ -339,8 +371,9 @@ export function HardwareSignalRadar({
     const channels = 16
 
     const render = () => {
-      const width = canvas.width
-      const height = canvas.height
+      const width = canvas.clientWidth || canvas.width
+      const height = canvas.clientHeight || canvas.height
+      ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0)
 
       ctx.clearRect(0, 0, width, height)
 
@@ -419,8 +452,9 @@ export function HardwareSignalRadar({
 
     const render = () => {
       t += 0.05
-      const width = canvas.width
-      const height = canvas.height
+      const width = canvas.clientWidth || canvas.width
+      const height = canvas.clientHeight || canvas.height
+      ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0)
       const centerY = height / 2
 
       ctx.clearRect(0, 0, width, height)
@@ -460,8 +494,8 @@ export function HardwareSignalRadar({
     const clickX = e.clientX - rect.left
     const clickY = e.clientY - rect.top
 
-    const width = canvas.width
-    const height = canvas.height
+    const width = canvas.clientWidth || canvas.width
+    const height = canvas.clientHeight || canvas.height
     const centerX = width / 2
     const centerY = height / 2
     const maxRadius = Math.min(centerX, centerY) - 10
@@ -559,13 +593,26 @@ export function HardwareSignalRadar({
         </div>
       </div>
 
-      {/* MAIN CANVAS */}
-      <div className="relative grid place-items-center rounded-md border border-border overflow-hidden" style={{ background: 'var(--background)' }}>
+      {/* MAIN CANVAS — measured and DPR-scaled, fluid with the container */}
+      <div ref={canvasWrapRef} className="relative grid place-items-center rounded-md border border-border overflow-hidden" style={{ background: 'var(--background)' }}>
         {activeTab === 'radar' && (
-          <canvas ref={radarCanvasRef} width={240} height={115} onClick={handleCanvasClick} className="cursor-pointer rounded touch-none" aria-label="Radar display" />
+          <canvas
+            ref={radarCanvasRef}
+            width={Math.round(canvasView.w * dpr)}
+            height={Math.round(canvasView.h * dpr)}
+            onClick={handleCanvasClick}
+            className="w-full cursor-pointer rounded touch-none"
+            aria-label="Radar display"
+          />
         )}
         {activeTab === 'spectrum' && (
-          <canvas ref={spectrumCanvasRef} width={240} height={115} className="rounded touch-none" aria-label="Spectrum analyzer" />
+          <canvas
+            ref={spectrumCanvasRef}
+            width={Math.round(canvasView.w * dpr)}
+            height={Math.round(canvasView.h * dpr)}
+            className="w-full rounded touch-none"
+            aria-label="Spectrum analyzer"
+          />
         )}
         <div className="absolute top-1.5 left-1.5 pointer-events-none">
           <div className="flex items-center gap-1 text-[9px] font-mono text-slate-300 bg-black/70 px-1.5 py-0.5 rounded border border-border">
@@ -590,7 +637,13 @@ export function HardwareSignalRadar({
           </span>
           <span className="text-slate-500">{activeNode?.respirationDisplacementMm || 3.4} mm</span>
         </div>
-        <canvas ref={bioRadarCanvasRef} width={240} height={26} className="w-full rounded" aria-label="Respiration waveform" />
+        <canvas
+          ref={bioRadarCanvasRef}
+          width={Math.round(canvasView.w * dpr)}
+          height={Math.round(canvasView.bioH * dpr)}
+          className="w-full rounded"
+          aria-label="Respiration waveform"
+        />
       </div>
 
       {/* METRICS */}
