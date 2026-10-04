@@ -297,6 +297,28 @@ Dashboard shell, patient cards, trends, alerts, loading/error/stale states.
 - History, alerts, and stale status work.
 - Dashboard remains usable during reconnects.
 
+### Status: complete (simulator side) — 2026-10-03
+- FastAPI backend (`backend/app/`) with the v1 envelope contract on every route:
+  devices, patient measurement history, alerts (+acknowledge), network metrics,
+  and a WebSocket realtime stream.
+- The backend drives the Phase 2–4 simulator mesh as its data source; the tick
+  loop harvests measurements, alert thresholds (configurable, non-clinical), and
+  network events (route_change, disconnect/buffer, backfill), and broadcasts them.
+- SQLite persistence (`backend/app/persistence.py`): numbered migrations, the
+  `UNIQUE (device_id, sequence_number)` constraint enforcing FR-05 at the
+  database, INSERT OR IGNORE on replayed packets, and history served from the
+  database rather than the in-memory window. Location: `APP_DATA_DIR` (default
+  `.data/app.db`); `REMPM_DISABLE_DB=1` disables it for tests.
+- React + TypeScript dashboard generated from the v0 prompt
+  (`frontend/v0-prompt.md`), integrated against the real backend; strict TS
+  typecheck passes. `frontend_backup/` is the pre-integration copy and is
+  not part of the product.
+- 13 API contract tests + 15 persistence tests; full suite 133+ tests, no
+  regressions. Tests keep off `.data/` via `REMPM_DISABLE_DB`.
+- Known limits: alert latency (M-03/M-09) is not yet computed; auth is
+  lab-only and deferred to Phase 7; MQTT is not used — the simulator feeds
+  ingestion in-process (R-09's documented simplification).
+
 ---
 
 ## Phase 6 — Local risk scoring and edge intelligence

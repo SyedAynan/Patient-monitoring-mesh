@@ -8,30 +8,30 @@
   color-scheme: dark;
   --background: #000000;
   --foreground: #f0f6fc;
-  --card: #030712;
+  --card: #050505;
   --card-foreground: #f0f6fc;
-  --popover: #060b18;
+  --popover: #050505;
   --popover-foreground: #f0f6fc;
   --primary: #38d9ef;
-  --primary-foreground: #020610;
-  --secondary: #0b1528;
+  --primary-foreground: #000000;
+  --secondary: #0a0a0c;
   --secondary-foreground: #d0dbe9;
-  --muted: #08101e;
+  --muted: #08080a;
   --muted-foreground: #7e8e9f;
-  --accent: #0e2038;
+  --accent: #0c0c0e;
   --accent-foreground: #f0f6fc;
   --destructive: #f43f5e;
-  --border: rgba(56, 189, 248, 0.12);
-  --input: rgba(56, 189, 248, 0.16);
+  --border: rgba(56, 189, 248, 0.10);
+  --input: rgba(56, 189, 248, 0.14);
   --ring: #38d9ef;
   --radius: 0.85rem;
-  --sidebar: #02050b;
+  --sidebar: #000000;
   --sidebar-foreground: #f0f6fc;
   --sidebar-primary: #38d9ef;
-  --sidebar-primary-foreground: #020610;
-  --sidebar-accent: #0c1b30;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #08080a;
   --sidebar-accent-foreground: #f0f6fc;
-  --sidebar-border: rgba(56, 189, 248, 0.12);
+  --sidebar-border: rgba(56, 189, 248, 0.10);
   --sidebar-ring: #38d9ef;
 }
 
@@ -75,32 +75,37 @@
   }
 }
 
-/* Cosmic Scrollbar */
+/* Premium Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.6);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.18);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.35);
 }
 
-/* Cosmic Space Glass Panels & Cards */
+/* Premium Glass Metric Cards */
 .metric-card {
-  @apply relative overflow-hidden rounded-2xl border border-cyan-500/15 bg-[#030814]/75 p-4 shadow-[0_12px_45px_rgba(0,0,0,0.7)] backdrop-blur-xl transition-all duration-300;
+  @apply relative overflow-hidden rounded-2xl border border-cyan-500/10 p-3.5 backdrop-blur-xl transition-all duration-300;
+  background: linear-gradient(135deg, rgba(8,8,12,0.9) 0%, rgba(2,2,4,0.95) 100%);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8), inset 0 1px 0 rgba(56,189,248,0.06);
 }
 .metric-card::after {
   content: '';
-  @apply pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent;
+  @apply pointer-events-none absolute inset-x-3 top-0 h-px;
+  background: linear-gradient(to right, transparent, rgba(56,189,248,0.25), transparent);
 }
 .metric-card:hover {
-  @apply -translate-y-1 border-cyan-400/35 bg-[#050e24]/85 shadow-[0_18px_60px_rgba(34,211,238,0.12)];
+  @apply border-cyan-400/25;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.8), 0 0 20px rgba(34,211,238,0.06), inset 0 1px 0 rgba(56,189,248,0.1);
+  transform: translateY(-1px);
 }
 
 .metric-icon {
@@ -122,17 +127,21 @@
   @apply bg-violet-400/15 text-violet-300 shadow-[0_0_15px_rgba(167,139,250,0.2)];
 }
 
+/* Premium Glass Panel */
 .panel {
-  @apply overflow-hidden rounded-2xl border border-cyan-500/15 bg-[#020612]/80 shadow-[0_25px_80px_rgba(0,0,0,0.85)] backdrop-blur-2xl;
+  @apply overflow-hidden rounded-2xl border border-cyan-500/10 backdrop-blur-2xl;
+  background: linear-gradient(180deg, rgba(8,8,12,0.9) 0%, rgba(2,2,4,0.95) 100%);
+  box-shadow: 0 16px 64px rgba(0,0,0,0.8), inset 0 1px 0 rgba(56,189,248,0.05);
 }
 .panel-header {
-  @apply flex items-start justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-cyan-500/[0.04] via-transparent to-purple-500/[0.04] px-5 py-4;
+  @apply flex items-start justify-between gap-4 border-b border-white/8 px-4 py-3;
+  background: linear-gradient(to right, rgba(56,189,248,0.03), transparent, rgba(139,92,246,0.03));
 }
 .section-title {
   @apply text-sm font-semibold tracking-wide text-slate-100;
 }
 .section-subtitle {
-  @apply mt-1 text-xs text-slate-400;
+  @apply mt-0.5 text-[11px] text-slate-400;
 }
 
 .network-large {
@@ -161,6 +170,22 @@
   @apply text-[10px] text-slate-400;
 }
 
+/* Time range pill buttons */
+.time-range-btn {
+  @apply rounded-md px-2.5 py-1 text-[10px] font-bold font-mono tracking-wider transition-all;
+}
+.time-range-btn.active {
+  @apply bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_10px_rgba(34,211,238,0.15)];
+}
+.time-range-btn:not(.active) {
+  @apply text-slate-500 hover:text-slate-300 border border-transparent;
+}
+
+/* Risk range labels */
+.risk-range-row {
+  @apply flex items-center justify-between text-[10px] font-mono py-0.5;
+}
+
 @keyframes pulseGlow {
   0%, 100% {
     opacity: 0.6;
@@ -176,8 +201,98 @@
   animation: pulseGlow 3s ease-in-out infinite;
 }
 
+/* Live Chart Scan Sweep Animation */
+@keyframes chartSweep {
+  0% {
+    left: -5%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.8;
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    left: 105%;
+    opacity: 0;
+  }
+}
+
+.animate-chart-sweep {
+  animation: chartSweep 2.2s linear infinite;
+}
+
+@keyframes chartSweepReverse {
+  0% {
+    right: -5%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0.6;
+  }
+  100% {
+    right: 105%;
+    opacity: 0;
+  }
+}
+
+.animate-chart-sweep-reverse {
+  animation: chartSweepReverse 3.8s linear infinite;
+}
+
+/* Grid Motion Drift Animation */
+@keyframes gridDrift {
+  0% {
+    background-position: 0px 0px;
+  }
+  100% {
+    background-position: 40px 0px;
+  }
+}
+
+.animate-grid-drift {
+  animation: gridDrift 8s linear infinite;
+}
+
+/* Moving Wave Shimmer */
+@keyframes waveShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-wave-shimmer {
+  background-size: 200% 200%;
+  animation: waveShimmer 4s ease infinite;
+}
+
+/* Dashboard column scroll */
+.dashboard-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.15) transparent;
+}
+
 @media (max-width: 640px) {
   .panel-header {
     @apply flex-col;
+  }
+}
+
+/* Responsive overrides for mobile stacking */
+@media (max-width: 1023px) {
+  .dashboard-grid-main {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    overflow-y: auto !important;
   }
 }

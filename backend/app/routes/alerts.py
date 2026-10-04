@@ -34,4 +34,6 @@ async def acknowledge_alert(alert_id: str):
         raise HTTPException(status_code=404, detail="Alert not found")
     a.acknowledged_at_ms = int(time.time() * 1000)
     a.acknowledged_by = "operator"
+    if state.persistence is not None:
+        state.persistence.acknowledge_alert(alert_id, a.acknowledged_at_ms, "operator")
     return {"data": _alert_to_dict(a), "error": None}
