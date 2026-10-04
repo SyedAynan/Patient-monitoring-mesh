@@ -6,8 +6,10 @@
  */
 
 import type { Measurement, Alert, Device, NetworkEvent, RiskSnapshot } from './api';
+import { resolveRealtimeWsUrl } from './capacitor';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/api/v1/realtime';
+// Resolved lazily at connect time so a runtime-saved backend host (native app
+// settings) takes effect on the next connect without a rebuild.
 
 export type RealtimeMessageType = 'measurement' | 'alert' | 'device_status' | 'network_event' | 'risk';
 
@@ -36,7 +38,7 @@ function connect() {
   intentionallyClosed = false;
 
   try {
-    ws = new WebSocket(WS_URL);
+    ws = new WebSocket(resolveRealtimeWsUrl());
   } catch {
     scheduleReconnect();
     return;
@@ -102,4 +104,25 @@ export function disconnect() {
   }
   ws?.close();
   ws = null;
+}
+
+/**
+ * Drop the current socket and reconnect immediately to the *currently resolved*
+ * URL. Called after the user changes the backend host in the native app's
+ * settings — resolveRealtimeWsUrl() then returns the new host.
+ */
+export function reconnect() {
+  if (listeners.size === 0) return; // nobody listening; nothing to reconnect
+  intentionallyClosed = false;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  try {
+    ws?.close();
+  } catch {
+    /* ignore */
+  }
+  ws = null;
+  connect();
 }

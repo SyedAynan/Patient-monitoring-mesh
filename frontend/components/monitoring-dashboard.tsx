@@ -16,7 +16,8 @@ import {
   type Device, type Measurement, type Alert as ApiAlert, type NetworkMetrics, type NetworkEvent,
   type RiskSnapshot,
 } from '@/lib/api'
-import { subscribe, onConnectionStatus, type RealtimeMessage } from '@/lib/realtime'
+import { subscribe, onConnectionStatus, reconnect as reconnectRealtime, type RealtimeMessage } from '@/lib/realtime'
+import { isNativeApp, resolveBackendBaseUrl, saveBackendHost, currentSavedBackendHost } from '@/lib/capacitor'
 import { monitorAudio } from '@/lib/audio'
 import { ECGWaveformCanvas } from './ecg-canvas'
 import { RiskScoreGauge } from './risk-gauge'
@@ -263,9 +264,21 @@ export default function MonitoringDashboard() {
   const [activeMarker, setActiveMarker] = useState<'hr' | 'spo2' | 'rr' | 'temp' | null>(null)
   const [eventLog, setEventLog] = useState<EventLogEntry[]>([])
   const [mobilePanel, setMobilePanel] = useState<'vitals' | 'patient' | null>(null)
+  // Native-app backend host override (only shown in the Capacitor build).
+  const [isNative, setIsNative] = useState(false)
+  const [backendHost, setBackendHost] = useState('')
+  const [backendSaved, setBackendSaved] = useState(false)
 
   const latestMeasurements = useRef<Record<string, Measurement>>({})
   const selected = patients.find(p => p.id === selectedId) ?? patients[0]
+
+  // Detect the native (Capacitor) shell and pre-fill the backend host field.
+  // Runs once on mount — isNativeApp() reads window, so it must not run during
+  // SSR/prerender.
+  useEffect(() => {
+    setIsNative(isNativeApp())
+    setBackendHost(currentSavedBackendHost())
+  }, [])
 
   // Live time ticker
   useEffect(() => {
@@ -1107,6 +1120,51 @@ export default function MonitoringDashboard() {
                   >{serialConnected ? 'USB Connected' : 'Connect USB Serial'}</button>
                 )}
               </div>
+
+              {/* Backend server — only meaningful inside the native app, where
+                  127.0.0.1 is the phone itself. In a browser this panel is
+                  hidden (the build-time NEXT_PUBLIC_API_URL already applies). */}
+              {isNative && (
+                <div className="panel p-3.5 md:col-span-2" role="region" aria-label="Backend server">
+                  <h3 className="section-title text-sm font-semibold text-white mb-2">Backend Server</h3>
+                  <p className="text-[11px] text-slate-500 mb-2.5 leading-relaxed">
+                    The app reads live data from the FastAPI backend running on a PC on the same
+                    Wi-Fi network. Enter that machine's local IP address.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-1 items-center rounded-lg border border-border bg-background/50 px-3">
+                      <Server className="size-3.5 text-slate-500 mr-2 shrink-0" aria-hidden="true" />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={backendHost}
+                        onChange={(e) => { setBackendHost(e.target.value); setBackendSaved(false) }}
+                        placeholder="192.168.1.10"
+                        aria-label="Backend host IP address"
+                        className="w-full bg-transparent py-2 text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        saveBackendHost(backendHost)
+                        setBackendSaved(true)
+                        // Reconnect the realtime socket to the new host and
+                        // re-pull REST data. If still in demo mode, switch to
+                        // live so the new backend actually streams in.
+                        reconnectRealtime()
+                        if (dataMode === 'demo') setDataMode('real')
+                      }}
+                      className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-500/15 transition-colors"
+                    >Save</button>
+                  </div>
+                  <p className="mt-2 text-[10px] font-mono text-slate-600 truncate">
+                    {backendSaved
+                      ? <span className="text-emerald-400">Saved — reconnecting…</span>
+                      : <>Active backend: <span className="text-slate-400">{resolveBackendBaseUrl()}</span></>}
+                  </p>
+                </div>
+              )}
+
               <div className="panel p-3.5" role="region" aria-label="Presentation">
                 <h3 className="section-title text-sm font-semibold text-white mb-2">Presentation</h3>
                 <div className="flex flex-col gap-2">

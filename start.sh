@@ -6,6 +6,13 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+BACKEND_HOST=127.0.0.1
+LAN_MODE=0
+if [ "${1:-}" = "--lan" ]; then
+  BACKEND_HOST=0.0.0.0
+  LAN_MODE=1
+fi
+
 if [ ! -d .venv ] || [ ! -d frontend/node_modules ]; then
   echo "[ERROR] Not installed yet. Run ./install.sh first."
   exit 1
@@ -13,7 +20,12 @@ fi
 
 echo ""
 echo "=== CareNet IoT — starting ==="
-echo "Backend:   http://127.0.0.1:8000"
+if [ "$LAN_MODE" = "1" ]; then
+  echo "Backend:   http://0.0.0.0:8000  (reachable from devices on this network)"
+  echo "For the Android app, enter this machine's IP in Settings > Backend Server."
+else
+  echo "Backend:   http://127.0.0.1:8000"
+fi
 echo "Dashboard: http://localhost:3000"
 echo ""
 
@@ -21,7 +33,7 @@ echo ""
 source .venv/bin/activate
 
 # Backend in the background; frontend in the foreground.
-python -m uvicorn backend.app.main:create_app --factory --host 127.0.0.1 --port 8000 &
+python -m uvicorn backend.app.main:create_app --factory --host "$BACKEND_HOST" --port 8000 &
 BACKEND_PID=$!
 trap 'kill "$BACKEND_PID" 2>/dev/null || true' EXIT
 

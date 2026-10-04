@@ -1,5 +1,8 @@
 import type { MetadataRoute } from 'next'
 
+// Required for `output: 'export'` (Capacitor static bundle).
+export const dynamic = 'force-static'
+
 /**
  * Web App Manifest — makes the dashboard installable on phones/tablets.
  * Visit the site once, then "Add to Home Screen" / "Install app" from the
