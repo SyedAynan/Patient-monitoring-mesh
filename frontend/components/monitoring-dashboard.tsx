@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Activity, AlertTriangle, Battery, BatteryCharging, Bell, Check, ChevronRight, Clock,
-  Cpu, Droplets, Heart, HeartPulse, LayoutDashboard, Layers, LineChart, Menu, Network, Radio, RefreshCw, Search,
-  ShieldCheck, Signal, Thermometer, User, Volume2, VolumeX, Wifi, Wind, X, Zap, FileText, Settings,
+  Activity, AlertTriangle, Battery, Bell, Check, ChevronRight, Clock,
+  Cpu, Droplets, Heart, LayoutDashboard, Layers, Network, Radio, Search,
+  ShieldCheck, Signal, Thermometer, User, Volume2, VolumeX, Wifi, Wind, Zap,
+  ArrowUpRight, ArrowDownRight, ArrowRight, CircleAlert, CheckCircle2,
+  RefreshCw, FileText, Settings, Shield, Server,
 } from 'lucide-react'
-import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Button } from '@/components/ui/button'
 import {
   fetchDevices, fetchMeasurements, fetchAlerts, fetchNetworkMetrics,
@@ -21,7 +23,7 @@ import { AnatomicalBodyHologram } from './anatomical-body'
 import { HardwareSignalRadar } from './hardware-signal-radar'
 
 // ---------------------------------------------------------------------------
-// Derived types
+// Derived types — preserved from original
 // ---------------------------------------------------------------------------
 
 type Status = 'online' | 'attention' | 'stale'
@@ -46,16 +48,16 @@ type Patient = {
 
 type HistoryPoint = { time: string; hr: number; spo2: number; temp: number; rr: number }
 
-const PATIENT_META: Record<string, { name: string; room: string; age: number; gender: string; color: string }> = {
-  'patient-01': { name: 'Avery Morgan', room: 'Room 101 - Bed 1', age: 62, gender: 'Male', color: 'cyan' },
-  'patient-02': { name: 'Jordan Lee', room: 'Room 102 - Bed 2', age: 54, gender: 'Female', color: 'amber' },
-  'patient-03': { name: 'Samira Patel', room: 'Room 103 - Bed 3', age: 72, gender: 'Female', color: 'violet' },
-  'patient-04': { name: 'Elliot Chen', room: 'Room 104 - Bed 4', age: 43, gender: 'Male', color: 'rose' },
-  'patient-05': { name: 'Kai Nakamura', room: 'Room 105 - Bed 5', age: 37, gender: 'Male', color: 'emerald' },
+const PATIENT_META: Record<string, { name: string; room: string; bed: string; age: number; gender: string; color: string }> = {
+  'patient-01': { name: 'Avery Morgan', room: 'Room 101', bed: 'Bed 1', age: 62, gender: 'Male', color: 'cyan' },
+  'patient-02': { name: 'Jordan Lee', room: 'Room 102', bed: 'Bed 2', age: 54, gender: 'Female', color: 'amber' },
+  'patient-03': { name: 'Samira Patel', room: 'Room 103', bed: 'Bed 3', age: 72, gender: 'Female', color: 'violet' },
+  'patient-04': { name: 'Elliot Chen', room: 'Room 104', bed: 'Bed 4', age: 43, gender: 'Male', color: 'rose' },
+  'patient-05': { name: 'Kai Nakamura', room: 'Room 105', bed: 'Bed 5', age: 37, gender: 'Male', color: 'emerald' },
 }
 
 function deviceToPatient(dev: Device, latestMeasurement?: Measurement): Patient {
-  const meta = PATIENT_META[dev.patient_id] || { name: dev.patient_id, room: 'Room 100', age: 60, gender: 'Unspecified', color: 'slate' }
+  const meta = PATIENT_META[dev.patient_id] || { name: dev.patient_id, room: 'Room 100', bed: 'Bed 0', age: 60, gender: 'Unspecified', color: 'slate' }
   const isStale = dev.status === 'stale' || dev.status === 'offline'
   const needsAttention = latestMeasurement && (
     latestMeasurement.heart_rate_bpm > 120 || latestMeasurement.spo2_percent < 94
@@ -76,7 +78,7 @@ function deviceToPatient(dev: Device, latestMeasurement?: Measurement): Patient 
   return {
     id: dev.patient_id,
     name: meta.name,
-    room: meta.room,
+    room: `${meta.room} · ${meta.bed}`,
     age: meta.age,
     gender: meta.gender,
     status,
@@ -111,7 +113,7 @@ function measurementsToHistory(items: Measurement[]): HistoryPoint[] {
 // ---------------------------------------------------------------------------
 // Mini Sparkline SVG Component
 // ---------------------------------------------------------------------------
-function MiniSparkline({ data, color, height = 20, width = 64 }: { data: number[]; color: string; height?: number; width?: number }) {
+function MiniSparkline({ data, color, height = 24, width = 72 }: { data: number[]; color: string; height?: number; width?: number }) {
   if (data.length < 2) return <div style={{ width, height }} />
   const min = Math.min(...data)
   const max = Math.max(...data)
@@ -122,10 +124,54 @@ function MiniSparkline({ data, color, height = 20, width = 64 }: { data: number[
     return `${x},${y}`
   }).join(' ')
   return (
-    <svg width={width} height={height} className="opacity-50 flex-shrink-0">
+    <svg width={width} height={height} className="opacity-40 flex-shrink-0" aria-hidden="true">
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Vital Status Helpers
+// ---------------------------------------------------------------------------
+function getVitalState(vital: 'hr' | 'spo2' | 'rr' | 'temp', value: number): 'normal' | 'warning' | 'critical' {
+  const thresholds = {
+    hr: { warnLow: 55, warnHigh: 110, critLow: 45, critHigh: 130 },
+    spo2: { warnLow: 92, warnHigh: 101, critLow: 88, critHigh: 101 },
+    rr: { warnLow: 10, warnHigh: 22, critLow: 8, critHigh: 28 },
+    temp: { warnLow: 36.0, warnHigh: 37.8, critLow: 35.0, critHigh: 38.5 },
+  }
+  const t = thresholds[vital]
+  if (value < t.critLow || value > t.critHigh) return 'critical'
+  if (value < t.warnLow || value > t.warnHigh) return 'warning'
+  return 'normal'
+}
+
+function vitalStateLabel(state: 'normal' | 'warning' | 'critical'): string {
+  if (state === 'critical') return 'Critical'
+  if (state === 'warning') return 'Warning'
+  return 'Normal'
+}
+
+function vitalStateColor(state: 'normal' | 'warning' | 'critical'): string {
+  if (state === 'critical') return 'text-rose-400'
+  if (state === 'warning') return 'text-amber-400'
+  return 'text-emerald-400'
+}
+
+// ---------------------------------------------------------------------------
+// Trend arrow helper
+// ---------------------------------------------------------------------------
+function getTrendArrow(data: number[]): { icon: typeof ArrowUpRight; label: string; color: string } {
+  if (data.length < 3) return { icon: ArrowRight, label: 'Stable', color: 'text-slate-500' }
+  const recent = data.slice(-3)
+  const avg = recent.reduce((a, b) => a + b, 0) / recent.length
+  const prev = data.slice(-6, -3)
+  if (prev.length === 0) return { icon: ArrowRight, label: 'Stable', color: 'text-slate-500' }
+  const prevAvg = prev.reduce((a, b) => a + b, 0) / prev.length
+  const diff = avg - prevAvg
+  if (diff > 1) return { icon: ArrowUpRight, label: `↑ +${diff.toFixed(1)}`, color: 'text-amber-400' }
+  if (diff < -1) return { icon: ArrowDownRight, label: `↓ ${diff.toFixed(1)}`, color: 'text-cyan-400' }
+  return { icon: ArrowRight, label: '→ Stable', color: 'text-slate-500' }
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +180,7 @@ function MiniSparkline({ data, color, height = 20, width = 64 }: { data: number[
 const FALLBACK_PATIENTS: Patient[] = Object.entries(PATIENT_META).map(([id, meta], i) => ({
   id,
   name: meta.name,
-  room: meta.room,
+  room: `${meta.room} · ${meta.bed}`,
   age: meta.age,
   gender: meta.gender,
   status: (i === 3 ? 'attention' : 'online') as Status,
@@ -171,7 +217,17 @@ function generateFallbackHistory(): Record<string, HistoryPoint[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Main CareNet Dashboard with Audio FX
+// Event log entry type for recent events timeline
+// ---------------------------------------------------------------------------
+type EventLogEntry = {
+  id: string
+  time: string
+  message: string
+  type: 'success' | 'info' | 'warning' | 'critical'
+}
+
+// ---------------------------------------------------------------------------
+// Main CareNet Dashboard
 // ---------------------------------------------------------------------------
 
 export default function MonitoringDashboard() {
@@ -186,9 +242,12 @@ export default function MonitoringDashboard() {
   const [search, setSearch] = useState('')
   const [history, setHistory] = useState<Record<string, HistoryPoint[]>>({})
   const [currentTime, setCurrentTime] = useState<string>('')
+  const [currentDate, setCurrentDate] = useState<string>('')
   const [soundEnabled, setSoundEnabled] = useState(false)
-  const [timeRange, setTimeRange] = useState<'1H' | '6H' | '12H' | '24H'>('1H')
+  const [timeRange, setTimeRange] = useState<'LIVE' | '1H' | '6H' | '12H' | '24H'>('LIVE')
   const [activeMarker, setActiveMarker] = useState<'hr' | 'spo2' | 'rr' | 'temp' | null>(null)
+  const [eventLog, setEventLog] = useState<EventLogEntry[]>([])
+  const [mobilePanel, setMobilePanel] = useState<'vitals' | 'patient' | null>(null)
 
   const latestMeasurements = useRef<Record<string, Measurement>>({})
   const selected = patients.find(p => p.id === selectedId) ?? patients[0]
@@ -197,9 +256,38 @@ export default function MonitoringDashboard() {
   useEffect(() => {
     const timer = setInterval(() => {
       const d = new Date()
-      setCurrentTime(`${d.toISOString().split('T')[0]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)
+      setCurrentTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)
+      setCurrentDate(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }))
     }, 1000)
     return () => clearInterval(timer)
+  }, [])
+
+  // Event log generator
+  useEffect(() => {
+    const addEvent = (msg: string, type: EventLogEntry['type'] = 'success') => {
+      const d = new Date()
+      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+      setEventLog(prev => [{ id: `evt-${Date.now()}-${Math.random()}`, time, message: msg, type }, ...prev].slice(0, 20))
+    }
+    
+    const interval = setInterval(() => {
+      const events = [
+        { msg: 'Vitals within normal range', type: 'success' as const },
+        { msg: 'Telemetry frame received', type: 'success' as const },
+        { msg: 'Edge node heartbeat OK', type: 'success' as const },
+        { msg: 'Mesh route verified', type: 'info' as const },
+        { msg: 'Packet delivery confirmed', type: 'success' as const },
+      ]
+      const pick = events[Math.floor(Math.random() * events.length)]
+      addEvent(pick.msg, pick.type)
+    }, 8000)
+    
+    // Initial events
+    addEvent('Dashboard initialized', 'info')
+    addEvent('Telemetry stream connected', 'success')
+    addEvent('All edge nodes reporting', 'success')
+    
+    return () => clearInterval(interval)
   }, [])
 
   const toggleSound = () => {
@@ -207,7 +295,7 @@ export default function MonitoringDashboard() {
     setSoundEnabled(newState)
   }
 
-  // Trigger synthetic anomaly in Demo Mode (Drives cards, graph, markers, risk scores & alerts)
+  // Trigger synthetic anomaly in Demo Mode
   const handleTriggerAnomaly = (type: 'tachycardia' | 'hypoxia' | 'fever' | 'normal') => {
     if (type === 'tachycardia') {
       monitorAudio.playTestSound('tachycardia')
@@ -220,6 +308,7 @@ export default function MonitoringDashboard() {
         message: `CRITICAL: Severe Tachycardia (145 bpm) on Patient ${selectedId.replace('patient-', 'P-00')}`,
         raised_at_ms: Date.now(),
         acknowledged_at_ms: null,
+        acknowledged_by: null,
       }
       setAlerts(prev => [newAlert, ...prev])
       setPatients(prev => prev.map(p => p.id === selectedId ? { ...p, hr: 145, rr: 26, status: 'attention', riskScore: 78 } : p))
@@ -234,6 +323,7 @@ export default function MonitoringDashboard() {
         message: `CRITICAL: Severe Hypoxia Desaturation (88.5% SpO₂) on Patient ${selectedId.replace('patient-', 'P-00')}`,
         raised_at_ms: Date.now(),
         acknowledged_at_ms: null,
+        acknowledged_by: null,
       }
       setAlerts(prev => [newAlert, ...prev])
       setPatients(prev => prev.map(p => p.id === selectedId ? { ...p, spo2: 88.5, rr: 24, status: 'attention', riskScore: 82 } : p))
@@ -248,6 +338,7 @@ export default function MonitoringDashboard() {
         message: `WARNING: High Fever Pyrexia (39.6 °C) on Patient ${selectedId.replace('patient-', 'P-00')}`,
         raised_at_ms: Date.now(),
         acknowledged_at_ms: null,
+        acknowledged_by: null,
       }
       setAlerts(prev => [newAlert, ...prev])
       setPatients(prev => prev.map(p => p.id === selectedId ? { ...p, temp: 39.6, hr: 112, status: 'attention', riskScore: 65 } : p))
@@ -461,7 +552,7 @@ export default function MonitoringDashboard() {
     return () => { unsub(); unsubStatus() }
   }, [])
 
-  // Continuous High-Frequency Live Telemetry Motion Ticker (Smooth 1-second pulse without component thrashing)
+  // Continuous High-Frequency Live Telemetry Motion Ticker
   useEffect(() => {
     const liveMotionTimer = setInterval(() => {
       const d = new Date()
@@ -533,60 +624,60 @@ export default function MonitoringDashboard() {
   const rrSparkData = selectedHistory.slice(-14).map(p => p.rr)
   const tempSparkData = selectedHistory.slice(-14).map(p => p.temp)
 
+  // Risk contributors
+  const hrState = getVitalState('hr', selected.hr)
+  const spo2State = getVitalState('spo2', selected.spo2)
+  const rrState = getVitalState('rr', selected.rr)
+  const tempState = getVitalState('temp', selected.temp)
+
+  // Patient status label
+  const patientStatusLabel = selected.status === 'attention' ? 'Monitoring' : selected.status === 'stale' ? 'Stale' : 'Stable'
+  const patientStatusClass = selected.status === 'attention' ? 'status-badge attention' : selected.status === 'stale' ? 'status-badge stale' : 'status-badge online'
+
+  // Signal quality label
+  const signalLabel = selected.signal > 90 ? 'Excellent' : selected.signal > 70 ? 'Good' : selected.signal > 50 ? 'Fair' : 'Poor'
+
+  // Simulated system metrics
+  const sensorCount = patients.length
+  const onlineSensors = patients.filter(p => p.status !== 'stale').length
+  const meshStatus = connected ? 'Healthy' : 'Degraded'
+
   return (
-    <div className="h-screen overflow-hidden bg-black text-slate-100 font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200 flex flex-col">
+    <div className="h-screen overflow-hidden bg-background text-foreground font-sans antialiased flex flex-col">
 
       {/* ==================================================================== */}
-      {/* CareNet IoT Top Navigation Header Bar                                */}
+      {/* 1. GLOBAL HEADER — Clean Top Navigation                              */}
       {/* ==================================================================== */}
-      <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/12 px-4 py-2.5" style={{ background: 'linear-gradient(180deg, rgba(5,5,8,0.98) 0%, rgba(0,0,0,1) 100%)' }}>
+      <header
+        className="flex-shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2"
+        style={{ background: 'var(--card)' }}
+        role="banner"
+      >
+        {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="grid size-9 place-items-center rounded-xl border border-cyan-400/25 bg-cyan-500/12 text-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.2)]">
+          <div className="grid size-8 place-items-center rounded-lg bg-cyan-500/10 text-cyan-400" aria-hidden="true">
             <Activity className="size-4" />
           </div>
           <div>
-            <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
-              CareNet IoT <span className="text-[10px] font-normal text-slate-400 border-l border-slate-700 pl-2">Patient Monitoring System</span>
+            <h1 className="text-[15px] font-bold tracking-tight text-white flex items-center gap-2">
+              CareNet IoT
+              <span className="text-[10px] font-normal text-slate-500 border-l border-slate-700/50 pl-2">Patient Monitoring Mesh</span>
             </h1>
           </div>
         </div>
 
-        {/* Dual Mode Switcher: Demo Mode vs Real Hardware Mode */}
-        <div className="flex items-center rounded-xl border border-cyan-500/30 bg-cyan-950/40 p-0.5 font-mono text-[11px] shadow-[0_0_15px_rgba(6,182,212,0.15)]">
-          <button
-            onClick={() => setDataMode('demo')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1 font-bold transition-all ${
-              dataMode === 'demo'
-                ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span>🧪 DEMO MODE</span>
-          </button>
-
-          <button
-            onClick={() => setDataMode('real')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1 font-bold transition-all ${
-              dataMode === 'real'
-                ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>🔌 REAL HARDWARE</span>
-          </button>
-        </div>
-
         {/* Navigation Tabs */}
-        <nav className="flex items-center gap-0.5 rounded-xl border border-white/8 bg-black/50 p-0.5">
+        <nav className="hidden sm:flex items-center gap-0.5 rounded-lg border border-border bg-background/50 p-0.5" role="tablist" aria-label="Main navigation">
           {(['Overview', 'Patients', 'Devices', 'Analytics', 'Settings'] as const).map(tab => (
             <button
               key={tab}
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => handleTabChange(tab)}
-              className={`rounded-lg px-3.5 py-1.5 text-[11px] font-semibold transition-all ${
+              className={`rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
                 activeTab === tab
-                  ? 'border border-cyan-400/35 bg-cyan-500/18 text-cyan-200 shadow-[0_0_12px_rgba(34,211,238,0.18)]'
-                  : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                  ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'
+                  : 'text-slate-500 hover:text-slate-300 border border-transparent'
               }`}
             >
               {tab}
@@ -594,130 +685,214 @@ export default function MonitoringDashboard() {
           ))}
         </nav>
 
-        {/* Top Right: Sound Controls & Preview, Live, Time */}
+        {/* Right Side Controls */}
         <div className="flex items-center gap-2">
+          {/* Data Mode Indicator */}
+          <div className="flex items-center rounded-lg border border-border bg-background/50 p-0.5 font-mono text-[10px]">
+            <button
+              onClick={() => setDataMode('demo')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition-colors ${
+                dataMode === 'demo'
+                  ? 'bg-cyan-500/12 text-cyan-300 border border-cyan-500/20'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+              aria-label="Switch to demo mode with synthetic telemetry"
+            >
+              <Layers className="size-3" />
+              <span>DEMO MODE</span>
+            </button>
+            <button
+              onClick={() => setDataMode('real')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition-colors ${
+                dataMode === 'real'
+                  ? 'bg-emerald-500/12 text-emerald-300 border border-emerald-500/20'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+              aria-label="Switch to real hardware mode"
+            >
+              <Wifi className="size-3" />
+              <span>LIVE HARDWARE</span>
+            </button>
+          </div>
 
-
+          {/* Sound Toggle */}
           <button
             onClick={toggleSound}
-            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-all ${
+            className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-colors ${
               soundEnabled
-                ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.25)]'
-                : 'border-white/8 bg-white/5 text-slate-400 hover:text-slate-200'
+                ? 'border-cyan-500/20 bg-cyan-500/8 text-cyan-300'
+                : 'border-border bg-background/50 text-slate-500 hover:text-slate-300'
             }`}
-            title={soundEnabled ? 'Hospital Sound FX Enabled (Click to Mute)' : 'Enable Hospital Sound FX'}
+            aria-label={soundEnabled ? 'Mute audio alerts' : 'Enable audio alerts'}
           >
-            {soundEnabled ? <Volume2 className="size-3.5 animate-pulse text-cyan-300" /> : <VolumeX className="size-3.5" />}
-            <span>{soundEnabled ? 'Sound ON' : 'Sound Muted'}</span>
+            {soundEnabled ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />}
           </button>
 
-          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/8 px-3 py-1 text-[11px] font-semibold text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> Live
+          {/* Notifications */}
+          <button
+            className="relative flex items-center rounded-lg border border-border bg-background/50 p-1.5 text-slate-500 hover:text-slate-300 transition-colors"
+            aria-label={`${activeAlerts.length} active alerts`}
+          >
+            <Bell className="size-3.5" />
+            {activeAlerts.length > 0 && (
+              <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-rose-500 text-[8px] font-bold text-white">
+                {activeAlerts.length}
+              </span>
+            )}
+          </button>
+
+          {/* Date/Time */}
+          <div className="hidden md:flex flex-col items-end">
+            <span className="font-mono text-[10px] text-slate-400">{currentDate || 'Loading...'}</span>
+            <span className="font-mono text-[11px] font-semibold text-slate-300">{currentTime || '--:--:--'}</span>
           </div>
-          <span className="font-mono text-[11px] text-slate-400">{currentTime || '2026-10-02 16:10:35'}</span>
         </div>
       </header>
 
-      {/* Mode Status Sub-Header Bar */}
-      {dataMode === 'demo' ? (
-        <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 bg-cyan-950/20 px-4 py-1.5 font-mono text-xs">
-          <div className="flex items-center gap-2 text-cyan-300 font-semibold">
-            <span className="size-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span>DEMO MODE ACTIVE · SYNTHETIC TELEMETRY GENERATOR</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-slate-400">ANOMALY SIMULATOR:</span>
-            <button onClick={() => handleTriggerAnomaly('tachycardia')} className="px-2 py-0.5 text-[10px] rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40">⚡ Tachycardia</button>
-            <button onClick={() => handleTriggerAnomaly('hypoxia')} className="px-2 py-0.5 text-[10px] rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40">📉 Hypoxia</button>
-            <button onClick={() => handleTriggerAnomaly('fever')} className="px-2 py-0.5 text-[10px] rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40">🔥 Fever</button>
-            <button onClick={() => handleTriggerAnomaly('normal')} className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">🟢 Reset Normal</button>
-          </div>
+      {/* ==================================================================== */}
+      {/* 2. SYSTEM HEALTH BAR — Compact infrastructure status strip           */}
+      {/* ==================================================================== */}
+      <div className="flex-shrink-0 flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5 text-[11px] font-mono" style={{ background: 'rgba(11,17,32,0.8)' }}>
+        <div className="flex items-center gap-1.5">
+          <Radio className="size-3 text-emerald-400" />
+          <span className="text-slate-400">Sensors</span>
+          <span className="font-semibold text-emerald-400">{onlineSensors}/{sensorCount}</span>
+          <span className="text-slate-500">Online</span>
         </div>
-      ) : (
-        <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/25 bg-emerald-950/20 px-4 py-1.5 font-mono text-xs">
-          <div className="flex items-center gap-2 text-emerald-300 font-semibold">
-            <span className={`size-2 rounded-full ${connected ? 'bg-emerald-400 animate-ping' : 'bg-rose-500 animate-pulse'}`} />
-            <span>{connected ? 'REAL HARDWARE GATEWAY CONNECTED (ws://127.0.0.1:8000/api/v1/realtime)' : 'SEARCHING FOR HARDWARE GATEWAY (http://127.0.0.1:8000)...'}</span>
+        <div className="flex items-center gap-1.5">
+          <Server className="size-3 text-emerald-400" />
+          <span className="text-slate-400">Edge Nodes</span>
+          <span className="font-semibold text-emerald-400">{onlineSensors}/{sensorCount}</span>
+          <span className="text-slate-500">Online</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Network className="size-3 text-emerald-400" />
+          <span className="text-slate-400">Mesh</span>
+          <span className={`font-semibold ${connected ? 'text-emerald-400' : 'text-rose-400'}`}>{meshStatus}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Cpu className="size-3 text-emerald-400" />
+          <span className="text-slate-400">Gateway</span>
+          <span className={`font-semibold ${connected ? 'text-emerald-400' : 'text-rose-400'}`}>{connected ? 'Online' : 'Offline'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Activity className="size-3 text-cyan-400" />
+          <span className="text-slate-400">Telemetry</span>
+          <span className="font-semibold text-cyan-400">{dataMode === 'demo' ? 'Simulated' : 'Streaming'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Signal className="size-3 text-slate-400" />
+          <span className="text-slate-400">Latency</span>
+          <span className="font-semibold text-slate-300">3.2 ms</span>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Demo Mode Anomaly Buttons */}
+        {dataMode === 'demo' && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider mr-1">Simulate:</span>
+            <button onClick={() => handleTriggerAnomaly('tachycardia')} className="px-2 py-0.5 text-[10px] rounded-md bg-rose-500/10 hover:bg-rose-500/15 text-rose-400 border border-rose-500/20 transition-colors">Tachycardia</button>
+            <button onClick={() => handleTriggerAnomaly('hypoxia')} className="px-2 py-0.5 text-[10px] rounded-md bg-amber-500/10 hover:bg-amber-500/15 text-amber-400 border border-amber-500/20 transition-colors">Hypoxia</button>
+            <button onClick={() => handleTriggerAnomaly('fever')} className="px-2 py-0.5 text-[10px] rounded-md bg-orange-500/10 hover:bg-orange-500/15 text-orange-400 border border-orange-500/20 transition-colors">Fever</button>
+            <button onClick={() => handleTriggerAnomaly('normal')} className="px-2 py-0.5 text-[10px] rounded-md bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 transition-colors">Reset</button>
           </div>
+        )}
+
+        {dataMode === 'real' && (
           <div className="flex items-center gap-2">
+            <span className={`size-1.5 rounded-full ${connected ? 'bg-emerald-400 animate-live-pulse' : 'bg-rose-500'}`} />
+            <span className={connected ? 'text-emerald-400' : 'text-rose-400'}>
+              {connected ? 'Gateway Connected' : 'Reconnecting...'}
+            </span>
             <button
               onClick={connectUsbSerial}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all flex items-center gap-1.5 ${
+              className={`px-2 py-0.5 text-[10px] rounded-md border transition-colors ${
                 serialConnected
-                  ? 'border-emerald-400 bg-emerald-500/30 text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-                  : 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25'
+                  ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                  : 'border-cyan-500/20 bg-cyan-500/8 text-cyan-300 hover:bg-cyan-500/12'
               }`}
             >
-              <Cpu className="size-3" />
-              <span>{serialConnected ? 'USB SERIAL HARDWARE CONNECTED' : '🔌 CONNECT USB SERIAL (ESP32/ARDUINO)'}</span>
+              <Cpu className="size-3 inline mr-1" />
+              {serialConnected ? 'USB Connected' : 'Connect USB'}
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ==================================================================== */}
-      {/* Main CareNet 3-Column Grid Dashboard Layout                          */}
+      {/* Main 3-Column Dashboard Grid                                        */}
       {/* ==================================================================== */}
-      <div className="flex-1 min-h-0 grid gap-3 p-3 lg:grid-cols-[250px_1fr_350px] xl:grid-cols-[260px_1fr_400px] dashboard-grid-main" style={{ maxHeight: 'calc(100vh - 52px)' }}>
+      <div className="flex-1 min-h-0 grid gap-2.5 p-2.5 lg:grid-cols-[240px_1fr_340px] xl:grid-cols-[250px_1fr_380px] dashboard-grid-main" style={{ maxHeight: 'calc(100vh - 88px)' }}>
 
         {/* ------------------------------------------------------------------ */}
-        {/* LEFT COLUMN: Patient Selector List                                 */}
+        {/* 3. LEFT SIDEBAR — Patient Navigation                               */}
         {/* ------------------------------------------------------------------ */}
-        <aside className="flex flex-col gap-3 rounded-2xl border border-cyan-500/10 p-3.5 backdrop-blur-xl overflow-hidden" style={{ background: 'linear-gradient(180deg, rgba(5,5,8,0.95) 0%, rgba(0,0,0,0.98) 100%)' }}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold tracking-wider uppercase text-slate-200">Patients</h2>
-            <span className="rounded-full bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 font-mono text-[11px] font-semibold text-cyan-300">
+        <aside className="flex flex-col gap-2 overflow-hidden panel p-3" role="complementary" aria-label="Patient list">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-shrink-0">
+            <h2 className="text-xs font-semibold tracking-wider uppercase text-slate-300">Patients</h2>
+            <span className="rounded-md bg-cyan-500/8 border border-cyan-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-400">
               {patients.length} active
             </span>
           </div>
 
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2 size-3.5 text-slate-500" />
+          {/* Search */}
+          <div className="relative flex-shrink-0">
+            <Search className="absolute left-2.5 top-2 size-3.5 text-slate-600" aria-hidden="true" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search patient..."
-              className="h-8 w-full rounded-lg border border-white/8 bg-black/40 pl-8 pr-3 text-xs text-slate-200 outline-none placeholder:text-slate-500 focus:border-cyan-400/40 transition-colors"
+              className="h-8 w-full rounded-lg border border-border bg-background/50 pl-8 pr-3 text-xs text-slate-300 outline-none placeholder:text-slate-600 focus:border-cyan-500/30 transition-colors"
+              aria-label="Search patients"
             />
           </div>
 
           {/* Patient Cards List */}
-          <div className="flex flex-col gap-2 flex-1 overflow-y-auto dashboard-scroll pr-0.5">
+          <div className="flex flex-col gap-1.5 flex-1 overflow-y-auto dashboard-scroll pr-0.5" role="listbox" aria-label="Patient selection">
             {(filteredPatients.length > 0 ? filteredPatients : patients).map(p => {
               const isSelected = selected?.id === p.id
               const isWarning = p.status === 'attention'
               const isStale = p.status === 'stale'
+              const statusIcon = isStale ? '⊘' : isWarning ? '!' : '✓'
+              const statusText = isStale ? 'Stale' : isWarning ? 'Monitoring' : 'Stable'
+              const meta = PATIENT_META[p.id]
               return (
                 <button
                   key={p.id}
+                  role="option"
+                  aria-selected={isSelected}
                   onClick={() => handleSelectPatient(p.id)}
-                  className={`flex items-center justify-between rounded-xl border p-2.5 text-left transition-all ${
+                  className={`flex flex-col gap-1 rounded-lg border p-2.5 text-left transition-all ${
                     isSelected
-                      ? 'border-cyan-400/50 bg-cyan-500/12 shadow-[0_0_20px_rgba(34,211,238,0.1)]'
-                      : 'border-white/6 bg-black/25 hover:border-white/12 hover:bg-white/[0.03]'
+                      ? 'border-cyan-500/25 bg-cyan-500/6'
+                      : 'border-transparent bg-transparent hover:border-border hover:bg-white/[0.02]'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className={`grid size-7 place-items-center rounded-lg ${isSelected ? 'bg-cyan-400/18 text-cyan-300' : 'bg-white/5 text-slate-400'}`}>
-                      <User className="size-3.5" />
-                    </span>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-200">{p.room}</p>
-                      <p className="text-[10px] font-mono text-slate-400">Patient ID: {p.id.replace('patient-', 'P-00')}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-200">{p.id.replace('patient-', 'P-00')}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`status-dot ${isStale ? 'stale' : isWarning ? 'attention' : 'online'}`} aria-hidden="true" />
+                      <span className={`text-[10px] font-medium ${isStale ? 'text-slate-500' : isWarning ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {statusText}
+                      </span>
                     </div>
                   </div>
-                  {/* Status LED */}
-                  <span className={`size-2 rounded-full flex-shrink-0 ${
-                    isStale ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.5)]' : isWarning ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
-                  }`} />
+                  <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                    <span>{meta?.room} · {meta?.bed}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <span>{p.age} yrs · {p.gender}</span>
+                  </div>
                 </button>
               )
             })}
           </div>
 
-          {/* Hardware Signal Radar Component */}
-          <div className="mt-auto flex-shrink-0 pt-2 border-t border-cyan-500/15">
+          {/* Hardware Signal Radar Component — Bottom of Sidebar */}
+          <div className="mt-auto flex-shrink-0 pt-2 border-t border-border">
             <HardwareSignalRadar
               selectedPatientId={selected?.id}
               onSelectPatient={handleSelectPatient}
@@ -726,63 +901,86 @@ export default function MonitoringDashboard() {
         </aside>
 
         {/* ------------------------------------------------------------------ */}
-        {/* CENTER COLUMN: Focused Patient Telemetry & Charts                  */}
+        {/* CENTER COLUMN — Patient Telemetry & Charts                         */}
         {/* ------------------------------------------------------------------ */}
-        <main className="flex flex-col gap-3 min-h-0 overflow-y-auto dashboard-scroll">
+        <main className="flex flex-col gap-2.5 min-h-0 overflow-y-auto dashboard-scroll" role="main">
           {selected && (
             <>
-              {/* Patient Header Banner */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/12 p-3.5 backdrop-blur-xl flex-shrink-0" style={{ background: 'linear-gradient(135deg, rgba(8,8,12,0.95) 0%, rgba(0,0,0,0.98) 100%)' }}>
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-base font-bold tracking-tight text-white">
-                      Patient {selected.id.replace('patient-', 'P-00')}
-                    </h2>
-                    <span className="rounded-full border border-emerald-500/35 bg-emerald-500/12 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                      Stable
-                    </span>
+              {/* ============================================================ */}
+              {/* 4. PATIENT HEADER — Selected patient context                  */}
+              {/* ============================================================ */}
+              <div className="flex flex-wrap items-center justify-between gap-3 panel p-3.5 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-10 place-items-center rounded-lg bg-cyan-500/8 border border-cyan-500/15 text-cyan-400">
+                    <User className="size-5" />
                   </div>
-                  <p className="mt-0.5 text-xs text-slate-400 font-mono">
-                    {selected.room} · Age {selected.age} · {selected.gender}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold tracking-tight text-white">
+                        {selected.name}
+                      </h2>
+                      <span className={patientStatusClass}>
+                        {patientStatusLabel}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500 font-mono">
+                      {selected.id.replace('patient-', 'P-00')} · {selected.room} · Age {selected.age} · {selected.gender}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs font-mono text-slate-400">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Real-time Stream Active</span>
+                {/* Patient Meta Stats */}
+                <div className="flex items-center gap-4 text-[11px] font-mono">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-wider">Risk</span>
+                    <span className={`font-semibold ${selected.riskScore > 50 ? 'text-rose-400' : selected.riskScore > 25 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      {selected.riskScore}/100
+                    </span>
+                  </div>
+                  <div className="w-px h-6 bg-border" />
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-wider">Signal</span>
+                    <span className="font-semibold text-slate-300">{signalLabel}</span>
+                  </div>
+                  <div className="w-px h-6 bg-border" />
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-wider">Last Sync</span>
+                    <span className="font-semibold text-slate-300">{selected.lastSeen > 0 ? `${selected.lastSeen}s ago` : '< 1s'}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Status Connectivity Flow */}
-              <div className="flex items-center justify-between rounded-xl border border-emerald-500/15 bg-emerald-950/10 p-2 flex-shrink-0">
+              {/* ============================================================ */}
+              {/* Connectivity Flow                                            */}
+              {/* ============================================================ */}
+              <div className="flex items-center justify-between rounded-lg border border-border bg-card p-2 flex-shrink-0">
                 {[
                   { label: 'Wearable', icon: Activity },
                   { label: 'Edge Node', icon: Radio },
                   { label: 'Mesh', icon: Network },
                   { label: 'Dashboard', icon: LayoutDashboard },
                 ].map((step, i) => {
-                  const isActive = connected
                   const Icon = step.icon
                   return (
                     <div key={step.label} className="flex items-center flex-1 last:flex-none">
                       <div className="flex flex-col items-center gap-1 w-16">
-                        <div className={`grid size-7 place-items-center rounded-lg border transition-all duration-300 ${
+                        <div className={`grid size-7 place-items-center rounded-lg border transition-colors ${
                           connected 
-                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.1)]'
-                            : 'border-slate-700 bg-slate-800/50 text-slate-500'
-                        }`}>
+                            ? 'border-emerald-500/20 bg-emerald-500/6 text-emerald-400'
+                            : 'border-slate-700 bg-slate-800/50 text-slate-600'
+                        }`} aria-hidden="true">
                           <Icon className="size-3.5" />
                         </div>
-                        <span className={`text-[10px] font-mono whitespace-nowrap ${connected ? 'text-emerald-400/90' : 'text-slate-500'}`}>
+                        <span className={`text-[10px] font-mono whitespace-nowrap ${connected ? 'text-emerald-400/80' : 'text-slate-600'}`}>
                           {step.label}
                         </span>
                       </div>
                       
                       {i < 3 && (
-                        <div className="flex-1 px-1 relative h-0.5 flex items-center justify-center">
-                          <div className={`absolute left-0 right-0 h-px ${connected ? 'bg-emerald-500/25' : 'bg-slate-800'}`} />
+                        <div className="flex-1 px-1 relative h-0.5 flex items-center justify-center" aria-hidden="true">
+                          <div className={`absolute left-0 right-0 h-px ${connected ? 'bg-emerald-500/15' : 'bg-slate-800'}`} />
                           {connected && (
-                            <div className="h-1 w-8 rounded-full bg-emerald-400/80 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-data-flow" />
+                            <div className="h-0.5 w-6 rounded-full bg-emerald-400/60 animate-data-flow" />
                           )}
                         </div>
                       )}
@@ -791,158 +989,156 @@ export default function MonitoringDashboard() {
                 })}
               </div>
 
-              {/* 4 Core Vital Metric Cards Grid (Interactive Sync with Digital Twin) */}
-              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4 flex-shrink-0">
-                {/* 1. Heart Rate */}
-                <div
+              {/* ============================================================ */}
+              {/* 5. VITAL SIGN CARDS — 4 readable cards                       */}
+              {/* ============================================================ */}
+              <div className="grid grid-cols-2 gap-2 xl:grid-cols-4 flex-shrink-0" role="region" aria-label="Patient vital signs">
+                {/* Heart Rate */}
+                <button
                   onClick={() => {
                     monitorAudio.playUiClick()
                     setActiveMarker(prev => prev === 'hr' ? null : 'hr')
                   }}
-                  className={`metric-card cursor-pointer transition-all ${
-                    activeMarker === 'hr'
-                      ? 'border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.35)] bg-rose-500/10 ring-1 ring-rose-500/40'
-                      : 'hover:border-rose-500/30'
-                  }`}
+                  className={`metric-card cursor-pointer text-left ${activeMarker === 'hr' ? 'active-hr' : ''}`}
+                  aria-label={`Heart rate: ${selected.hr} beats per minute, ${vitalStateLabel(hrState)}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
-                      <Heart className="size-3.5 text-rose-500 fill-rose-500/20 animate-pulse" /> Heart Rate
-                    </span>
-                    {activeMarker === 'hr' && (
-                      <span className="text-[9px] font-mono font-bold text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30 animate-pulse">SELECTED</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Heart className="size-3.5 text-rose-400" aria-hidden="true" />
+                      <span className="text-[11px] font-medium text-slate-400">Heart Rate</span>
+                    </div>
+                    <span className={`text-[9px] font-semibold ${vitalStateColor(hrState)}`}>{vitalStateLabel(hrState)}</span>
                   </div>
                   <div className="mt-2 flex items-end justify-between">
                     <div className="flex items-baseline gap-1">
-                      <span className="font-mono text-2xl font-bold text-white">{selected.hr}</span>
-                      <span className="text-[11px] text-slate-400 font-mono">bpm</span>
+                      <span className="font-mono text-[28px] font-bold leading-none text-white">{selected.hr}</span>
+                      <span className="text-[11px] text-slate-500 font-mono">bpm</span>
                     </div>
                     <MiniSparkline data={hrSparkData} color="#f43f5e" />
                   </div>
-                  <p className="mt-1 text-[10px] font-mono text-slate-500">(60 - 100)</p>
-                </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-slate-600">Range 60–100</span>
+                    <span className="text-[10px] text-slate-500">{getTrendArrow(hrSparkData).label}</span>
+                  </div>
+                </button>
 
-                {/* 2. SpO2 */}
-                <div
+                {/* SpO₂ */}
+                <button
                   onClick={() => {
                     monitorAudio.playUiClick()
                     setActiveMarker(prev => prev === 'spo2' ? null : 'spo2')
                   }}
-                  className={`metric-card cursor-pointer transition-all ${
-                    activeMarker === 'spo2'
-                      ? 'border-cyan-400 shadow-[0_0_20px_rgba(56,189,248,0.35)] bg-cyan-500/10 ring-1 ring-cyan-400/40'
-                      : 'hover:border-cyan-500/30'
-                  }`}
+                  className={`metric-card cursor-pointer text-left ${activeMarker === 'spo2' ? 'active-spo2' : ''}`}
+                  aria-label={`SpO2: ${selected.spo2} percent, ${vitalStateLabel(spo2State)}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
-                      <Droplets className="size-3.5 text-cyan-400 fill-cyan-400/20" /> SpO₂
-                    </span>
-                    {activeMarker === 'spo2' && (
-                      <span className="text-[9px] font-mono font-bold text-cyan-300 bg-cyan-500/20 px-1.5 py-0.5 rounded border border-cyan-400/30 animate-pulse">SELECTED</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Droplets className="size-3.5 text-cyan-400" aria-hidden="true" />
+                      <span className="text-[11px] font-medium text-slate-400">SpO₂</span>
+                    </div>
+                    <span className={`text-[9px] font-semibold ${vitalStateColor(spo2State)}`}>{vitalStateLabel(spo2State)}</span>
                   </div>
                   <div className="mt-2 flex items-end justify-between">
                     <div className="flex items-baseline gap-1">
-                      <span className="font-mono text-2xl font-bold text-white">{selected.spo2}</span>
-                      <span className="text-[11px] text-slate-400 font-mono">%</span>
+                      <span className="font-mono text-[28px] font-bold leading-none text-white">{selected.spo2}</span>
+                      <span className="text-[11px] text-slate-500 font-mono">%</span>
                     </div>
-                    <MiniSparkline data={spo2SparkData} color="#38bdf8" />
+                    <MiniSparkline data={spo2SparkData} color="#22d3ee" />
                   </div>
-                  <p className="mt-1 text-[10px] font-mono text-slate-500">(95 - 100)</p>
-                </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-slate-600">Range 95–100</span>
+                    <span className="text-[10px] text-slate-500">{getTrendArrow(spo2SparkData).label}</span>
+                  </div>
+                </button>
 
-                {/* 3. Respiratory Rate */}
-                <div
+                {/* Respiratory Rate */}
+                <button
                   onClick={() => {
                     monitorAudio.playUiClick()
                     setActiveMarker(prev => prev === 'rr' ? null : 'rr')
                   }}
-                  className={`metric-card cursor-pointer transition-all ${
-                    activeMarker === 'rr'
-                      ? 'border-violet-400 shadow-[0_0_20px_rgba(139,92,246,0.35)] bg-violet-500/10 ring-1 ring-violet-400/40'
-                      : 'hover:border-violet-500/30'
-                  }`}
+                  className={`metric-card cursor-pointer text-left ${activeMarker === 'rr' ? 'active-rr' : ''}`}
+                  aria-label={`Respiratory rate: ${selected.rr} breaths per minute, ${vitalStateLabel(rrState)}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
-                      <Wind className="size-3.5 text-violet-400" /> Respiratory Rate
-                    </span>
-                    {activeMarker === 'rr' && (
-                      <span className="text-[9px] font-mono font-bold text-violet-300 bg-violet-500/20 px-1.5 py-0.5 rounded border border-violet-400/30 animate-pulse">SELECTED</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Wind className="size-3.5 text-violet-400" aria-hidden="true" />
+                      <span className="text-[11px] font-medium text-slate-400">Respiratory Rate</span>
+                    </div>
+                    <span className={`text-[9px] font-semibold ${vitalStateColor(rrState)}`}>{vitalStateLabel(rrState)}</span>
                   </div>
                   <div className="mt-2 flex items-end justify-between">
                     <div className="flex items-baseline gap-1">
-                      <span className="font-mono text-2xl font-bold text-white">{selected.rr}</span>
-                      <span className="text-[11px] text-slate-400 font-mono">br/min</span>
+                      <span className="font-mono text-[28px] font-bold leading-none text-white">{selected.rr}</span>
+                      <span className="text-[11px] text-slate-500 font-mono">br/min</span>
                     </div>
                     <MiniSparkline data={rrSparkData} color="#8b5cf6" />
                   </div>
-                  <p className="mt-1 text-[10px] font-mono text-slate-500">(12 - 20)</p>
-                </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-slate-600">Range 12–20</span>
+                    <span className="text-[10px] text-slate-500">{getTrendArrow(rrSparkData).label}</span>
+                  </div>
+                </button>
 
-                {/* 4. Temperature */}
-                <div
+                {/* Temperature */}
+                <button
                   onClick={() => {
                     monitorAudio.playUiClick()
                     setActiveMarker(prev => prev === 'temp' ? null : 'temp')
                   }}
-                  className={`metric-card cursor-pointer transition-all ${
-                    activeMarker === 'temp'
-                      ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.35)] bg-amber-500/10 ring-1 ring-amber-400/40'
-                      : 'hover:border-amber-500/30'
-                  }`}
+                  className={`metric-card cursor-pointer text-left ${activeMarker === 'temp' ? 'active-temp' : ''}`}
+                  aria-label={`Temperature: ${selected.temp} degrees celsius, ${vitalStateLabel(tempState)}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
-                      <Thermometer className="size-3.5 text-amber-400" /> Temperature
-                    </span>
-                    {activeMarker === 'temp' && (
-                      <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-400/30 animate-pulse">SELECTED</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Thermometer className="size-3.5 text-amber-400" aria-hidden="true" />
+                      <span className="text-[11px] font-medium text-slate-400">Temperature</span>
+                    </div>
+                    <span className={`text-[9px] font-semibold ${vitalStateColor(tempState)}`}>{vitalStateLabel(tempState)}</span>
                   </div>
                   <div className="mt-2 flex items-end justify-between">
                     <div className="flex items-baseline gap-1">
-                      <span className="font-mono text-2xl font-bold text-white">{selected.temp}</span>
-                      <span className="text-[11px] text-slate-400 font-mono">°C</span>
+                      <span className="font-mono text-[28px] font-bold leading-none text-white">{selected.temp}</span>
+                      <span className="text-[11px] text-slate-500 font-mono">°C</span>
                     </div>
-                    <MiniSparkline data={tempSparkData} color="#fbbf24" />
+                    <MiniSparkline data={tempSparkData} color="#f59e0b" />
                   </div>
-                  <p className="mt-1 text-[10px] font-mono text-slate-500">(36.1 - 37.2)</p>
-                </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-slate-600">Range 36.1–37.2</span>
+                    <span className="text-[10px] text-slate-500">{getTrendArrow(tempSparkData).label}</span>
+                  </div>
+                </button>
               </div>
 
-              {/* Live Vitals Multi-Parameter Overlaid Chart */}
-              <div className="panel p-4 flex-shrink-0 relative overflow-hidden">
-                <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+              {/* ============================================================ */}
+              {/* 6. LIVE TELEMETRY GRAPH                                      */}
+              {/* ============================================================ */}
+              <div className="panel p-3.5 flex-shrink-0 relative overflow-hidden" role="region" aria-label="Live vital sign trends">
+                <div className="mb-2.5 flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="section-title text-sm font-bold text-white">Live Vitals Trend</h3>
-                      <span className="flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.2)]">
-                        <span className="size-1.5 rounded-full bg-cyan-400 animate-ping" /> STREAMING
+                      <h3 className="section-title text-sm font-semibold text-white">Live Vitals Trend</h3>
+                      <span className="flex items-center gap-1 rounded-md border border-cyan-500/20 bg-cyan-500/6 px-2 py-0.5 text-[10px] font-mono font-medium text-cyan-400">
+                        <span className="size-1.5 rounded-full bg-cyan-400 animate-live-pulse" aria-hidden="true" />
+                        {timeRange === 'LIVE' ? 'Streaming · 1 Hz' : `${timeRange} Window`}
                       </span>
                     </div>
-                    <p className="section-subtitle">Real-time multi-parameter sensor telemetry motion graph</p>
+                    <p className="section-subtitle text-[11px]">Multi-parameter sensor telemetry</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-3 text-[11px] font-mono">
-                      <span className="flex items-center gap-1 text-rose-400 font-semibold">
-                        <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" /> Heart Rate: {selected.hr} bpm
-                      </span>
-                      <span className="flex items-center gap-1 text-cyan-400 font-semibold">
-                        <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" /> SpO₂: {selected.spo2}%
-                      </span>
-                      <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                        <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /> Resp: {selected.rr} br/min
-                      </span>
+                  <div className="flex items-center gap-2.5">
+                    {/* Current values */}
+                    <div className="hidden md:flex items-center gap-3 text-[10px] font-mono">
+                      <span className="flex items-center gap-1 text-rose-400"><span className="size-1.5 rounded-full bg-rose-400" /> HR: {selected.hr}</span>
+                      <span className="flex items-center gap-1 text-cyan-400"><span className="size-1.5 rounded-full bg-cyan-400" /> SpO₂: {selected.spo2}%</span>
+                      <span className="flex items-center gap-1 text-emerald-400"><span className="size-1.5 rounded-full bg-emerald-400" /> RR: {selected.rr}</span>
                     </div>
                     {/* Time Range Selector */}
-                    <div className="flex items-center gap-0.5 rounded-lg border border-white/8 bg-black/30 p-0.5">
-                      {(['1H', '6H', '12H', '24H'] as const).map(range => (
+                    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/50 p-0.5" role="radiogroup" aria-label="Time range">
+                      {(['LIVE', '1H', '6H', '12H', '24H'] as const).map(range => (
                         <button
                           key={range}
+                          role="radio"
+                          aria-checked={timeRange === range}
                           onClick={() => setTimeRange(range)}
                           className={`time-range-btn ${timeRange === range ? 'active' : ''}`}
                         >
@@ -953,128 +1149,150 @@ export default function MonitoringDashboard() {
                   </div>
                 </div>
 
-                {/* Moving Graph Container with Dual Laser Scan Beams & Motion Grid */}
-                <div className="relative h-[200px] w-full rounded-xl overflow-hidden bg-[#020914]/90 border border-cyan-500/15">
-                  {/* Drifting Motion Grid Overlay */}
+                {/* Chart */}
+                <div className="relative h-[200px] w-full rounded-lg overflow-hidden bg-[#060e1c] border border-border">
+                  {/* Subtle grid overlay */}
                   <div 
-                    className="absolute inset-0 opacity-25 pointer-events-none animate-grid-drift" 
+                    className="absolute inset-0 opacity-15 pointer-events-none" 
                     style={{ 
-                      backgroundImage: 'linear-gradient(rgba(56, 189, 248, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 189, 248, 0.2) 1px, transparent 1px)',
+                      backgroundImage: 'linear-gradient(rgba(148, 163, 184, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, 0.15) 1px, transparent 1px)',
                       backgroundSize: '24px 24px'
-                    }} 
+                    }}
+                    aria-hidden="true"
                   />
 
-                  {/* Dual Moving Vertical Laser Scan Beams */}
-                  <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-                    <div className="absolute top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-cyan-400 to-transparent shadow-[0_0_18px_#22d3ee] animate-chart-sweep" />
-                    <div className="absolute top-0 bottom-0 w-0.5 bg-gradient-to-b from-transparent via-teal-300 to-transparent shadow-[0_0_12px_#5eead4] animate-chart-sweep-reverse" />
-                  </div>
+                  {/* Scan beam — only on LIVE mode */}
+                  {timeRange === 'LIVE' && (
+                    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden" aria-hidden="true">
+                      <div className="absolute top-0 bottom-0 w-0.5 bg-gradient-to-b from-transparent via-cyan-400/50 to-transparent animate-chart-sweep" />
+                    </div>
+                  )}
 
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={selectedHistory} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
                       <defs>
                         <linearGradient id="fill-hr" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.45} />
+                          <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
                           <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                         </linearGradient>
                         <linearGradient id="fill-spo2" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.45} />
-                          <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                          <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
                         </linearGradient>
                         <linearGradient id="fill-rr" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#34d399" stopOpacity={0.35} />
-                          <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid stroke="rgba(56,189,248,0.18)" vertical={false} />
-                      <XAxis dataKey="time" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
-                      <YAxis domain={[10, 160]} tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
+                      <CartesianGrid stroke="rgba(148, 163, 184, 0.06)" vertical={false} />
+                      <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 9 }} axisLine={false} tickLine={false} />
+                      <YAxis domain={[10, 160]} tick={{ fill: '#64748b', fontSize: 9 }} axisLine={false} tickLine={false} />
                       <Tooltip
                         contentStyle={{
-                          background: 'rgba(3,8,20,0.95)',
-                          border: '1px solid rgba(56,189,248,0.3)',
-                          borderRadius: 10,
-                          fontSize: 10,
-                          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                          backdropFilter: 'blur(12px)',
+                          background: 'rgba(11,17,32,0.95)',
+                          border: '1px solid rgba(148, 163, 184, 0.15)',
+                          borderRadius: 8,
+                          fontSize: 11,
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                         }}
                       />
-                      <Area type="monotone" dataKey="hr" name="Heart Rate" stroke="#f43f5e" strokeWidth={3} fill="url(#fill-hr)" dot={false} isAnimationActive={false} />
-                      <Area type="monotone" dataKey="spo2" name="SpO₂" stroke="#38bdf8" strokeWidth={3} fill="url(#fill-spo2)" dot={false} isAnimationActive={false} />
-                      <Area type="monotone" dataKey="rr" name="Resp Rate" stroke="#34d399" strokeWidth={2.5} fill="url(#fill-rr)" dot={false} isAnimationActive={false} />
+                      <Area type="monotone" dataKey="hr" name="Heart Rate" stroke="#f43f5e" strokeWidth={2} fill="url(#fill-hr)" dot={false} isAnimationActive={false} />
+                      <Area type="monotone" dataKey="spo2" name="SpO₂" stroke="#22d3ee" strokeWidth={2} fill="url(#fill-spo2)" dot={false} isAnimationActive={false} />
+                      <Area type="monotone" dataKey="rr" name="Resp Rate" stroke="#10b981" strokeWidth={1.5} fill="url(#fill-rr)" dot={false} isAnimationActive={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* 2-Column Row: Risk Score Gauge + Recent Alerts */}
-              <div className="grid gap-3 md:grid-cols-2 flex-shrink-0">
-                {/* Risk Score Widget */}
-                <div className="panel p-4 flex flex-col">
-                  <h3 className="section-title font-bold text-white text-sm">Risk Score</h3>
-                  <div className="flex items-center justify-center gap-6 flex-1 mt-1">
-                    <RiskScoreGauge score={selected.riskScore} label={selected.riskScore > 25 ? "Elevated Risk" : "Low Risk"} />
-                    <div className="flex flex-col gap-1.5">
-                      <div className="risk-range-row">
-                        <span className="text-emerald-400 font-semibold w-14">Low</span>
-                        <span className="text-slate-500">0–25</span>
+              {/* ============================================================ */}
+              {/* Bottom Grid: Risk + Alerts + Events + Telemetry Quality       */}
+              {/* ============================================================ */}
+              <div className="grid gap-2.5 md:grid-cols-2 flex-shrink-0">
+                {/* ======================================================== */}
+                {/* 8. RISK ANALYSIS — with contributors                      */}
+                {/* ======================================================== */}
+                <div className="panel p-3.5" role="region" aria-label="Risk analysis">
+                  <h3 className="section-title text-sm font-semibold text-white mb-2">Risk Analysis</h3>
+                  <div className="flex items-start gap-4">
+                    <RiskScoreGauge score={selected.riskScore} label={selected.riskScore > 50 ? "High Risk" : selected.riskScore > 25 ? "Elevated" : "Low Risk"} />
+                    <div className="flex-1 flex flex-col gap-1.5 text-[11px] font-mono">
+                      <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">Contributors</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Heart Rate</span>
+                        <span className={vitalStateColor(hrState)}>{vitalStateLabel(hrState)}</span>
                       </div>
-                      <div className="risk-range-row">
-                        <span className="text-amber-400 font-semibold w-14">Moderate</span>
-                        <span className="text-slate-500">26–50</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">SpO₂</span>
+                        <span className={vitalStateColor(spo2State)}>{vitalStateLabel(spo2State)}</span>
                       </div>
-                      <div className="risk-range-row">
-                        <span className="text-orange-400 font-semibold w-14">High</span>
-                        <span className="text-slate-500">51–75</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Respiration</span>
+                        <span className={vitalStateColor(rrState)}>{vitalStateLabel(rrState)}</span>
                       </div>
-                      <div className="risk-range-row">
-                        <span className="text-rose-400 font-semibold w-14">Critical</span>
-                        <span className="text-slate-500">76–100</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Temperature</span>
+                        <span className={vitalStateColor(tempState)}>{vitalStateLabel(tempState)}</span>
                       </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-border">
+                        <span className="text-slate-400">Signal Quality</span>
+                        <span className="text-slate-300">{signalLabel}</span>
+                      </div>
+                      <p className="text-[9px] text-slate-600 mt-0.5">Last evaluated: {currentTime}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Recent Alerts List */}
-                <div className="panel p-4 flex flex-col">
-                  <div className="flex items-center justify-between">
-                    <h3 className="section-title font-bold text-white text-sm">Recent Alerts</h3>
-                    <button className="text-[10px] font-mono font-semibold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-0.5">
-                      View All <ChevronRight className="size-3" />
-                    </button>
+                {/* ======================================================== */}
+                {/* 10. ALERT PANEL — Dedicated alerts                        */}
+                {/* ======================================================== */}
+                <div className="panel p-3.5" role="region" aria-label="Active alerts">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="section-title text-sm font-semibold text-white">Alerts</h3>
+                    {activeAlerts.length > 0 && (
+                      <span className="rounded-md bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-400">
+                        {activeAlerts.length} Active
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-2 flex flex-col gap-2 text-[11px] flex-1">
+                  <div className="flex flex-col gap-1.5 text-[11px]">
                     {activeAlerts.length > 0 ? (
-                      activeAlerts.slice(0, 3).map(a => (
-                        <div key={a.alert_id} className="flex items-center gap-2 rounded-xl border border-amber-500/15 bg-amber-500/8 p-2.5 text-amber-200 relative overflow-hidden">
-                          {/* Warning left edge */}
-                          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-400/60" />
-                          <AlertTriangle className="size-3.5 shrink-0 text-amber-400 ml-1" />
+                      activeAlerts.slice(0, 4).map(a => (
+                        <div key={a.alert_id} className="flex items-start gap-2 rounded-lg border border-rose-500/10 bg-rose-500/5 p-2 relative">
+                          <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-lg bg-rose-400/50" />
+                          <AlertTriangle className="size-3.5 shrink-0 text-rose-400 mt-0.5 ml-1" aria-hidden="true" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium text-[11px]">{a.message}</p>
-                            <span className="font-mono text-[9px] text-slate-400">{formatMs(a.raised_at_ms)}</span>
+                            <p className="font-medium text-rose-200 text-[11px] leading-snug">{a.message}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="font-mono text-[9px] text-slate-500">{formatMs(a.raised_at_ms)}</span>
+                              {dataMode === 'demo' && (
+                                <span className="text-[8px] font-semibold text-cyan-500 bg-cyan-500/10 px-1 py-0.5 rounded border border-cyan-500/15">SIMULATION</span>
+                              )}
+                            </div>
                           </div>
-                          <Button size="sm" variant="ghost" onClick={() => handleAcknowledgeAlert(a.alert_id)} className="h-6 px-2 text-[9px] font-semibold text-cyan-300 hover:bg-cyan-500/15 rounded-md">Ack</Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleAcknowledgeAlert(a.alert_id)} className="h-6 px-2 text-[9px] font-medium text-cyan-400 hover:bg-cyan-500/10 rounded-md" aria-label="Acknowledge alert">
+                            Ack
+                          </Button>
                         </div>
                       ))
                     ) : (
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-medium text-[11px]">
-                          <Check className="size-3.5" /> Normal vitals
+                      <div className="flex flex-col gap-1.5 py-2">
+                        <div className="flex items-center gap-1.5 text-emerald-400">
+                          <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                          <span className="font-medium">All vitals normal</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-medium text-[11px]">
-                          <Check className="size-3.5" /> No alerts
+                        <div className="flex items-center gap-1.5 text-emerald-400">
+                          <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                          <span className="font-medium">No active alerts</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-medium text-[11px]">
-                          <Check className="size-3.5" /> On room air
-                        </div>
+                        <p className="text-[10px] text-slate-600 mt-1">Last checked: {currentTime}</p>
                       </div>
                     )}
                   </div>
 
-                  {/* Continuous Heartbeat Sparkline with QRS Heartbeat Audio Beeps */}
+                  {/* ECG Sparkline */}
+                  <div className="mt-2 pt-2 border-t border-border">
                     <ECGWaveformCanvas
-                      height={24}
+                      height={20}
                       color={selected.status === 'attention' ? "#f59e0b" : "#10b981"}
                       hr={selected.hr}
                       spo2={selected.spo2}
@@ -1083,52 +1301,107 @@ export default function MonitoringDashboard() {
                       riskScore={selected.riskScore}
                       enableBeep={soundEnabled}
                     />
+                  </div>
                 </div>
               </div>
 
-              {/* Bottom Device Telemetry Strip */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 flex-shrink-0">
-                <div className="rounded-xl border border-white/6 bg-[#06111D]/60 p-2.5 flex items-center gap-2.5">
-                  <span className="grid size-7 place-items-center rounded-lg bg-emerald-500/15 text-emerald-400"><Battery className="size-3.5" /></span>
-                  <div>
-                    <span className="text-[9px] uppercase text-slate-400 block font-mono tracking-wider">Battery</span>
-                    <span className="text-xs font-bold font-mono text-white">87%</span>
+              {/* ============================================================ */}
+              {/* 9. RECENT EVENTS + 11. TELEMETRY QUALITY                     */}
+              {/* ============================================================ */}
+              <div className="grid gap-2.5 md:grid-cols-2 flex-shrink-0">
+                {/* Recent Events Timeline */}
+                <div className="panel p-3.5" role="region" aria-label="Recent events">
+                  <h3 className="section-title text-sm font-semibold text-white mb-2">Recent Events</h3>
+                  <div className="flex flex-col gap-1 text-[11px] font-mono max-h-[140px] overflow-y-auto dashboard-scroll">
+                    {eventLog.slice(0, 8).map(evt => (
+                      <div key={evt.id} className="flex items-center gap-2 py-1 border-b border-border/50 last:border-0">
+                        <span className="text-[10px] text-slate-600 w-16 flex-shrink-0">{evt.time}</span>
+                        {evt.type === 'success' && <CheckCircle2 className="size-3 text-emerald-400 flex-shrink-0" />}
+                        {evt.type === 'info' && <Activity className="size-3 text-cyan-400 flex-shrink-0" />}
+                        {evt.type === 'warning' && <AlertTriangle className="size-3 text-amber-400 flex-shrink-0" />}
+                        {evt.type === 'critical' && <CircleAlert className="size-3 text-rose-400 flex-shrink-0" />}
+                        <span className="text-slate-400 truncate">{evt.message}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-white/6 bg-[#06111D]/60 p-2.5 flex items-center gap-2.5">
-                  <span className="grid size-7 place-items-center rounded-lg bg-cyan-500/15 text-cyan-300"><Signal className="size-3.5" /></span>
-                  <div>
-                    <span className="text-[9px] uppercase text-slate-400 block font-mono tracking-wider">Signal Strength</span>
-                    <span className="text-xs font-bold font-mono text-white">Excellent</span>
+                {/* Telemetry Quality */}
+                <div className="panel p-3.5" role="region" aria-label="Telemetry quality">
+                  <h3 className="section-title text-sm font-semibold text-white mb-2">Telemetry Quality</h3>
+                  <div className="flex flex-col gap-2 text-[11px]">
+                    {[
+                      { name: 'Heart Rate', quality: 98, color: 'bg-rose-400' },
+                      { name: 'SpO₂', quality: 99, color: 'bg-cyan-400' },
+                      { name: 'Respiration', quality: 97, color: 'bg-violet-400' },
+                      { name: 'Temperature', quality: 98, color: 'bg-amber-400' },
+                    ].map(item => (
+                      <div key={item.name} className="flex items-center gap-2">
+                        <span className="text-slate-400 w-24 font-mono text-[10px]">{item.name}</span>
+                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.quality}%` }} />
+                        </div>
+                        <span className="text-slate-300 font-mono w-8 text-right">{item.quality}%</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-2 border-t border-border text-[10px] font-mono">
+                      <span className="text-slate-500">Packet Age</span>
+                      <span className="text-slate-300">{selected.lastSeen > 0 ? `${selected.lastSeen}s` : '< 1s'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-slate-500">Source</span>
+                      <span className="text-slate-300">Edge Node {selected.deviceId?.replace('device-', '') || '01'}</span>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="rounded-xl border border-white/6 bg-[#06111D]/60 p-2.5 flex items-center gap-2.5">
-                  <span className="grid size-7 place-items-center rounded-lg bg-emerald-500/15 text-emerald-400"><Cpu className="size-3.5" /></span>
-                  <div>
-                    <span className="text-[9px] uppercase text-slate-400 block font-mono tracking-wider">Edge Mode</span>
-                    <span className="text-xs font-bold font-mono text-white">Online</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/6 bg-[#06111D]/60 p-2.5 flex items-center gap-2.5">
-                  <span className="grid size-7 place-items-center rounded-lg bg-blue-500/15 text-blue-300"><Clock className="size-3.5" /></span>
-                  <div>
-                    <span className="text-[9px] uppercase text-slate-400 block font-mono tracking-wider">Last Sync</span>
-                    <span className="text-xs font-bold font-mono text-white">Just now</span>
-                  </div>
-                </div>
+              {/* ============================================================ */}
+              {/* 13. INFRASTRUCTURE HEALTH — Bottom strip                     */}
+              {/* ============================================================ */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 flex-shrink-0" role="region" aria-label="Infrastructure health">
+                {[
+                  { icon: Battery, label: 'Battery', value: '87%', iconColor: 'text-emerald-400' },
+                  { icon: Signal, label: 'Signal', value: '-42 dBm', iconColor: 'text-cyan-400' },
+                  { icon: Cpu, label: 'Edge Mode', value: 'Online', iconColor: 'text-emerald-400' },
+                  { icon: Clock, label: 'Last Sync', value: selected.lastSeen > 0 ? `${selected.lastSeen}s` : '< 1s', iconColor: 'text-blue-400' },
+                  { icon: ShieldCheck, label: 'Delivery', value: '99.98%', iconColor: 'text-emerald-400' },
+                  { icon: RefreshCw, label: 'Retries', value: '8', iconColor: 'text-amber-400' },
+                  { icon: AlertTriangle, label: 'Dropped', value: '0', iconColor: 'text-emerald-400' },
+                  { icon: Shield, label: 'Corrupted', value: '7', iconColor: 'text-slate-400' },
+                ].map(item => {
+                  const Icon = item.icon
+                  return (
+                    <div key={item.label} className="rounded-lg border border-border bg-card p-2 flex items-center gap-2">
+                      <Icon className={`size-3.5 ${item.iconColor} flex-shrink-0`} aria-hidden="true" />
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase text-slate-500 block font-mono tracking-wider truncate">{item.label}</span>
+                        <span className="text-[11px] font-semibold font-mono text-white">{item.value}</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </>
+          )}
+
+          {/* Empty State */}
+          {!selected && (
+            <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+              <div className="text-center">
+                <User className="size-12 mx-auto mb-3 text-slate-700" />
+                <p className="font-medium">No patient selected</p>
+                <p className="text-xs text-slate-600 mt-1">Select a patient from the sidebar to view telemetry</p>
+              </div>
+            </div>
           )}
         </main>
 
         {/* ------------------------------------------------------------------ */}
-        {/* RIGHT COLUMN: 3D Anatomical Hologram & Vital Readout               */}
+        {/* 7. RIGHT COLUMN — Patient Visualization & Anatomical Model         */}
         {/* ------------------------------------------------------------------ */}
         {selected && (
-          <aside className="flex flex-col min-h-0 overflow-hidden">
+          <aside className="hidden lg:flex flex-col min-h-0 overflow-hidden" role="complementary" aria-label="Patient visualization">
             <AnatomicalBodyHologram
               patientId={selected.id.replace('patient-', 'P-00')}
               room={selected.room}
@@ -1144,16 +1417,12 @@ export default function MonitoringDashboard() {
         )}
       </div>
 
-      <style jsx global>{`
-        @keyframes dataFlow {
-          0% { transform: translateX(-100%); opacity: 0.2; }
-          50% { opacity: 1; }
-          100% { transform: translateX(300%); opacity: 0.2; }
-        }
-        .animate-data-flow {
-          animation: dataFlow 1.6s infinite ease-in-out;
-        }
-      `}</style>
+      {/* ==================================================================== */}
+      {/* Disclaimer Footer                                                    */}
+      {/* ==================================================================== */}
+      <footer className="disclaimer-bar flex-shrink-0" role="contentinfo">
+        Educational prototype — simulated, non-clinical data. Not for diagnosis.
+      </footer>
     </div>
   )
 }

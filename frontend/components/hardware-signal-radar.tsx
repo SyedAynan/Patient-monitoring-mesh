@@ -488,230 +488,156 @@ export function HardwareSignalRadar({
   }
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-cyan-500/20 bg-black/75 p-3 backdrop-blur-md overflow-hidden shadow-[inset_0_0_25px_rgba(6,182,212,0.06)]">
-      {/* ------------------------------------------------------------------ */}
-      {/* HEADER & TAB SWITCHER                                              */}
-      {/* ------------------------------------------------------------------ */}
+    <div className="flex flex-col gap-2 rounded-lg border border-border p-2.5 overflow-hidden" style={{ background: 'var(--card)' }} role="region" aria-label="Hardware signal radar">
+      {/* HEADER & TAB SWITCHER */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className="relative grid size-6.5 place-items-center rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-            <Radio className="size-3.5 animate-pulse" />
-          </div>
+          <Radio className="size-3.5 text-cyan-400" aria-hidden="true" />
           <div>
-            <h3 className="text-xs font-bold tracking-wider text-slate-100 uppercase flex items-center gap-1.5">
-              HARDWARE SIGNAL RADAR
-              <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
-            </h3>
-            <p className="text-[9px] font-mono text-cyan-400/80">RF MESH · UWB BIO-RADAR</p>
+            <h3 className="text-[10px] font-semibold tracking-wider text-slate-300 uppercase">Signal Radar</h3>
+            <p className="text-[8px] font-mono text-slate-600">RF Mesh &middot; UWB</p>
           </div>
         </div>
-
-        {/* Tab Controls */}
-        <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-black/40 p-0.5 font-mono text-[10px]">
+        <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 font-mono text-[9px]">
           <button
             onClick={() => setActiveTab('radar')}
-            className={`rounded px-2 py-0.5 transition-all ${
-              activeTab === 'radar' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold' : 'text-slate-400 hover:text-slate-200'
+            className={`rounded px-2 py-0.5 transition-colors ${
+              activeTab === 'radar' ? 'bg-cyan-500/10 text-cyan-400 font-semibold' : 'text-slate-500 hover:text-slate-300'
             }`}
+            aria-label="Radar view"
           >
-            RADAR
+            Radar
           </button>
           <button
             onClick={() => setActiveTab('spectrum')}
-            className={`rounded px-2 py-0.5 transition-all ${
-              activeTab === 'spectrum' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold' : 'text-slate-400 hover:text-slate-200'
+            className={`rounded px-2 py-0.5 transition-colors ${
+              activeTab === 'spectrum' ? 'bg-cyan-500/10 text-cyan-400 font-semibold' : 'text-slate-500 hover:text-slate-300'
             }`}
+            aria-label="Spectrum view"
           >
-            SPECTRUM
+            Spectrum
           </button>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* SECONDARY TOOLBAR: Range Zoom, Mute, Ping                         */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-white/6 bg-white/[0.02] px-2 py-1 font-mono text-[10px]">
-        {/* Range Selector */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-slate-400">RANGE:</span>
+      {/* TOOLBAR */}
+      <div className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1 font-mono text-[9px]" style={{ background: 'var(--background)' }}>
+        <div className="flex items-center gap-1">
+          <span className="text-slate-600">Range:</span>
           {[10, 25, 50].map((m) => (
             <button
               key={m}
               onClick={() => setRangeScaleM(m)}
-              className={`px-1.5 py-0.5 rounded ${
-                rangeScaleM === m ? 'bg-cyan-400/20 text-cyan-300 font-bold border border-cyan-400/40' : 'text-slate-400 hover:text-slate-200'
+              className={`px-1.5 py-0.5 rounded transition-colors ${
+                rangeScaleM === m ? 'bg-cyan-500/10 text-cyan-400 font-semibold' : 'text-slate-500 hover:text-slate-300'
               }`}
             >
               {m}m
             </button>
           ))}
         </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setIsAudioMuted(!isAudioMuted)}
-            className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-            title={isAudioMuted ? 'Unmute Audio Ping' : 'Mute Audio Ping'}
+            className="p-1 rounded text-slate-500 hover:text-slate-300 transition-colors"
+            aria-label={isAudioMuted ? 'Unmute' : 'Mute'}
           >
             {isAudioMuted ? <VolumeX className="size-3 text-rose-400" /> : <Volume2 className="size-3 text-cyan-400" />}
           </button>
-
           <button
             onClick={handleManualPing}
             disabled={isPingActive}
-            className={`flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-[10px] font-semibold transition-all ${
+            className={`flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[9px] font-medium transition-colors ${
               isPingActive
-                ? 'border-cyan-400 bg-cyan-500/30 text-white shadow-[0_0_12px_rgba(34,211,238,0.4)] scale-95'
-                : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-500/20'
+                ? 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300'
+                : 'border-border bg-cyan-500/6 text-cyan-400 hover:bg-cyan-500/10'
             }`}
           >
             <RefreshCw className={`size-2.5 ${isPingActive ? 'animate-spin' : ''}`} />
-            PING MESH
+            Ping
           </button>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* MAIN DISPLAY VIEWPORT (RADAR vs SPECTRUM)                           */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="relative grid place-items-center rounded-lg border border-cyan-500/15 bg-slate-950/90 p-0.5">
+      {/* MAIN CANVAS */}
+      <div className="relative grid place-items-center rounded-md border border-border overflow-hidden" style={{ background: 'var(--background)' }}>
         {activeTab === 'radar' && (
-          <canvas
-            ref={radarCanvasRef}
-            width={240}
-            height={115}
-            onClick={handleCanvasClick}
-            className="cursor-pointer rounded touch-none"
-          />
+          <canvas ref={radarCanvasRef} width={240} height={115} onClick={handleCanvasClick} className="cursor-pointer rounded touch-none" aria-label="Radar display" />
         )}
-
         {activeTab === 'spectrum' && (
-          <canvas
-            ref={spectrumCanvasRef}
-            width={240}
-            height={115}
-            className="rounded touch-none"
-          />
+          <canvas ref={spectrumCanvasRef} width={240} height={115} className="rounded touch-none" aria-label="Spectrum analyzer" />
         )}
-
-        {/* Legend Overlay */}
-        <div className="absolute top-2 left-2 flex flex-col gap-0.5 pointer-events-none">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-white bg-black/85 px-2 py-0.5 rounded-md border border-emerald-500/50 backdrop-blur-sm shadow-[0_0_8px_rgba(52,211,153,0.3)]">
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Nodes: {nodes.length}/{nodes.length}</span>
+        <div className="absolute top-1.5 left-1.5 pointer-events-none">
+          <div className="flex items-center gap-1 text-[9px] font-mono text-slate-300 bg-black/70 px-1.5 py-0.5 rounded border border-border">
+            <span className="size-1.5 rounded-full bg-emerald-400" />
+            Nodes: {nodes.length}/{nodes.length}
           </div>
         </div>
-
-        {/* Active Node Floating HUD Badge */}
         {activeNode && (
-          <div
-            onClick={() => setShowNodeModal(true)}
-            className="absolute bottom-2 left-2 cursor-pointer flex items-center gap-1.5 text-[9px] font-mono text-cyan-300 bg-black/80 px-2 py-0.5 rounded-md border border-cyan-500/30 hover:border-cyan-400 transition-colors"
-          >
+          <button onClick={() => setShowNodeModal(true)} className="absolute bottom-1.5 left-1.5 flex items-center gap-1 text-[8px] font-mono text-slate-400 bg-black/70 px-1.5 py-0.5 rounded border border-border hover:text-slate-200 transition-colors" aria-label={`Diagnostics for ${activeNode.name}`}>
             <Cpu className="size-2.5 text-cyan-400" />
-            <span>{activeNode.room} ({activeNode.name})</span>
-            <Maximize2 className="size-2 text-slate-400" />
-          </div>
+            {activeNode.room}
+            <Maximize2 className="size-2" />
+          </button>
         )}
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* BIO-RADAR UWB RESPIRATION WAVEFORM MONITOR                         */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-1 rounded-lg border border-emerald-500/20 bg-emerald-950/15 p-2">
-        <div className="flex items-center justify-between font-mono text-[9px]">
-          <span className="text-emerald-400 font-bold flex items-center gap-1">
-            <Activity className="size-2.5 text-emerald-400 animate-pulse" />
-            UWB BIO-RADAR · RESPIRATION MOTION
+      {/* BIO-RADAR */}
+      <div className="flex flex-col gap-1 rounded-md border border-border p-1.5" style={{ background: 'var(--background)' }}>
+        <div className="flex items-center justify-between font-mono text-[8px]">
+          <span className="text-emerald-400 font-medium flex items-center gap-1">
+            <Activity className="size-2.5" /> Bio-Radar
           </span>
-          <span className="text-emerald-300">
-            DISPL: <strong className="text-white">{activeNode?.respirationDisplacementMm || 3.4} mm</strong>
-          </span>
+          <span className="text-slate-500">{activeNode?.respirationDisplacementMm || 3.4} mm</span>
         </div>
-        <canvas ref={bioRadarCanvasRef} width={240} height={26} className="w-full rounded bg-black/40" />
+        <canvas ref={bioRadarCanvasRef} width={240} height={26} className="w-full rounded" aria-label="Respiration waveform" />
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* TELEMETRY METRICS GRID (PRIORITIZED FOR HIGHER READABILITY)        */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="grid grid-cols-3 gap-2 font-mono">
-        <div className="flex flex-col rounded-lg border border-cyan-500/20 bg-cyan-950/20 p-2 shadow-[0_0_10px_rgba(6,182,212,0.08)]">
-          <span className="text-[10px] font-semibold text-slate-300 flex items-center gap-1">
-            <Signal className="size-3 text-emerald-400" /> RSSI
-          </span>
-          <span className="text-sm font-extrabold text-cyan-300 mt-0.5">
-            {activeNode ? `${activeNode.rssi} dBm` : '-42 dBm'}
-          </span>
+      {/* METRICS */}
+      <div className="grid grid-cols-3 gap-1 font-mono">
+        <div className="flex flex-col rounded-md border border-border p-1.5" style={{ background: 'var(--background)' }}>
+          <span className="text-[8px] text-slate-600 flex items-center gap-1"><Signal className="size-2.5 text-cyan-400" /> RSSI</span>
+          <span className="text-[11px] font-semibold text-slate-300">{activeNode ? `${activeNode.rssi} dBm` : '-42 dBm'}</span>
         </div>
-
-        <div className="flex flex-col rounded-lg border border-amber-500/20 bg-amber-950/20 p-2 shadow-[0_0_10px_rgba(245,158,11,0.08)]">
-          <span className="text-[10px] font-semibold text-slate-300 flex items-center gap-1">
-            <Zap className="size-3 text-amber-400" /> LATENCY
-          </span>
-          <span className="text-sm font-extrabold text-amber-300 mt-0.5">
-            {activeNode ? `${activeNode.latencyMs} ms` : '3.7 ms'}
-          </span>
+        <div className="flex flex-col rounded-md border border-border p-1.5" style={{ background: 'var(--background)' }}>
+          <span className="text-[8px] text-slate-600 flex items-center gap-1"><Zap className="size-2.5 text-amber-400" /> Latency</span>
+          <span className="text-[11px] font-semibold text-slate-300">{activeNode ? `${activeNode.latencyMs} ms` : '3.7 ms'}</span>
         </div>
-
-        <div className="flex flex-col rounded-lg border border-emerald-500/20 bg-emerald-950/20 p-2 shadow-[0_0_10px_rgba(16,185,129,0.08)]">
-          <span className="text-[10px] font-semibold text-slate-300 flex items-center gap-1">
-            <ShieldCheck className="size-3 text-cyan-400" /> PACKETS
-          </span>
-          <span className="text-sm font-extrabold text-emerald-300 mt-0.5">
-            {totalRxPackets.toLocaleString()}
-          </span>
+        <div className="flex flex-col rounded-md border border-border p-1.5" style={{ background: 'var(--background)' }}>
+          <span className="text-[8px] text-slate-600 flex items-center gap-1"><ShieldCheck className="size-2.5 text-emerald-400" /> Pkts</span>
+          <span className="text-[11px] font-semibold text-slate-300">{totalRxPackets.toLocaleString()}</span>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* ADVANCED HARDWARE NODE DIAGNOSTICS MODAL                           */}
-      {/* ------------------------------------------------------------------ */}
+      {/* NODE DIAGNOSTICS MODAL */}
       {showNodeModal && activeNode && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 backdrop-blur-md p-4">
-          <div className="flex flex-col gap-3 w-full max-w-sm rounded-2xl border border-cyan-500/30 bg-slate-950 p-4 shadow-[0_0_50px_rgba(6,182,212,0.2)] font-mono text-xs">
-            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-label="Node diagnostics">
+          <div className="flex flex-col gap-3 w-full max-w-sm rounded-xl border border-border p-4 font-mono text-xs" style={{ background: 'var(--card)', boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
+            <div className="flex items-center justify-between border-b border-border pb-2">
               <div className="flex items-center gap-2">
-                <Cpu className="size-4 text-cyan-400" />
-                <h4 className="font-bold text-white uppercase">{activeNode.name}</h4>
+                <Cpu className="size-4 text-cyan-400" aria-hidden="true" />
+                <h4 className="font-semibold text-white text-[12px]">{activeNode.name}</h4>
               </div>
-              <button onClick={() => setShowNodeModal(false)} className="text-slate-400 hover:text-white">✕</button>
+              <button onClick={() => setShowNodeModal(false)} className="text-slate-500 hover:text-white transition-colors text-sm" aria-label="Close">&#x2715;</button>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="flex flex-col rounded bg-white/5 p-2">
-                <span className="text-slate-400">PATIENT ROOM</span>
-                <span className="font-bold text-cyan-300">{activeNode.room}</span>
-              </div>
-              <div className="flex flex-col rounded bg-white/5 p-2">
-                <span className="text-slate-400">HARDWARE CHIPSET</span>
-                <span className="font-bold text-slate-200">{activeNode.chipset}</span>
-              </div>
-              <div className="flex flex-col rounded bg-white/5 p-2">
-                <span className="text-slate-400">RF FREQUENCY</span>
-                <span className="font-bold text-emerald-300">{activeNode.frequencyGHz} GHz</span>
-              </div>
-              <div className="flex flex-col rounded bg-white/5 p-2">
-                <span className="text-slate-400">FIRMWARE BUILD</span>
-                <span className="font-bold text-amber-300">{activeNode.firmware}</span>
-              </div>
-              <div className="flex flex-col rounded bg-white/5 p-2">
-                <span className="text-slate-400">BATTERY HEALTH</span>
-                <span className="font-bold text-emerald-400">{activeNode.battery}% (3.95V)</span>
-              </div>
-              <div className="flex flex-col rounded bg-white/5 p-2">
-                <span className="text-slate-400">UWB DISTANCE</span>
-                <span className="font-bold text-cyan-400">{activeNode.uwbDistanceM} m</span>
-              </div>
+            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+              {[
+                { label: 'Patient Room', value: activeNode.room, color: '' },
+                { label: 'Chipset', value: activeNode.chipset, color: '' },
+                { label: 'RF Frequency', value: `${activeNode.frequencyGHz} GHz`, color: 'text-emerald-400' },
+                { label: 'Firmware', value: activeNode.firmware, color: '' },
+                { label: 'Battery', value: `${activeNode.battery}% (3.95V)`, color: 'text-emerald-400' },
+                { label: 'UWB Distance', value: `${activeNode.uwbDistanceM} m`, color: 'text-cyan-400' },
+              ].map(item => (
+                <div key={item.label} className="flex flex-col rounded-lg border border-border p-2" style={{ background: 'var(--background)' }}>
+                  <span className="text-slate-500 text-[9px]">{item.label}</span>
+                  <span className={`font-medium ${item.color || 'text-slate-200'}`}>{item.value}</span>
+                </div>
+              ))}
             </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-cyan-500/20">
-              <button
-                onClick={() => { handleManualPing(); setShowNodeModal(false) }}
-                className="rounded-lg border border-cyan-500/40 bg-cyan-500/20 px-3 py-1.5 text-cyan-200 font-bold hover:bg-cyan-500/30"
-              >
-                FORCE NODE RE-KEY
-              </button>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button onClick={() => setShowNodeModal(false)} className="rounded-lg border border-border px-3 py-1.5 text-slate-400 hover:text-slate-200 transition-colors text-[10px]">Close</button>
+              <button onClick={() => { handleManualPing(); setShowNodeModal(false) }} className="rounded-lg border border-cyan-500/20 bg-cyan-500/8 px-3 py-1.5 text-cyan-400 font-medium hover:bg-cyan-500/12 transition-colors text-[10px]">Ping Node</button>
             </div>
           </div>
         </div>
