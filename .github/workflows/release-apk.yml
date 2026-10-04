@@ -52,8 +52,11 @@ jobs:
       - name: Build static web bundle (Capacitor export)
         run: npm run build:mobile
 
-      - name: Sync into Android project
-        run: npx cap sync android
+      - name: Sync web bundle into Android project
+        # `cap copy` only copies the static bundle + regenerates
+        # capacitor.config.json — it never touches Gradle, unlike `cap sync`
+        # which can probe the toolchain and fail on a fresh clone.
+        run: npx cap copy android
 
       - name: Build debug APK
         working-directory: frontend/android
