@@ -120,9 +120,11 @@ open a browser tab. Requirements: **Python 3.10+** and **Node.js 18+**.
    **"Add to Home Screen" / "Install app"**. The dashboard launches
    full-screen, black-themed, like a native app.
 2. **Native APK.** A Capacitor wrapper is included under `frontend/android/`.
-   See **[docs/MobileApp.md](docs/MobileApp.md)** for the one-command build
-   (`build-apk.bat` / `./build-apk.sh`) and how to point the app at the backend
-   running on your PC.
+   Run **`build-apk.bat`** (Windows) or **`./build-apk.sh`** to produce
+   `app-debug.apk`; if you don't have Android Studio, run
+   `setup-android-sdk.bat` / `./setup-android-sdk.sh` once first to fetch a
+   local SDK. See **[docs/MobileApp.md](docs/MobileApp.md)** for pointing the
+   app at the backend running on your PC.
 
 Manual setup, if you prefer:
 

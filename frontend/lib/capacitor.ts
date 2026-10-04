@@ -37,7 +37,21 @@ export function isNativeApp(): boolean {
     }
   }
   const proto = window.location?.protocol || '';
-  return proto === 'capacitor:' || proto === 'ionic:' || (proto === 'http:' && window.location?.hostname === 'localhost');
+  const host = window.location?.hostname || '';
+  // Capacitor's Android WebView serves the bundle from `https://localhost`
+  // (and iOS from `capacitor://`). Treat any localhost-served origin that is
+  // NOT a real browser page as native: a real browser on `localhost` reaches
+  // the dev server, which we can't distinguish by origin alone — but in that
+  // case there is no Capacitor bridge, and we already returned false above.
+  // So reaching here means the global is absent AND we're on a native scheme.
+  if (proto === 'capacitor:' || proto === 'ionic:') return true;
+  if ((proto === 'https:' || proto === 'http:') && host === 'localhost') {
+    // Served from the app's own WebView scheme rather than the dev server.
+    // `window.Capacitor` may not be defined yet if this runs pre-bridge, but
+    // a packaged app has no other reason to be on https://localhost.
+    return true;
+  }
+  return false;
 }
 
 /** Read a persisted override from localStorage (native app runtime config). */

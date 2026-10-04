@@ -23,6 +23,32 @@ if not exist frontend\node_modules (
     exit /b 1
 )
 
+REM ---- Locate the Android SDK ----
+REM Gradle finds the SDK via ANDROID_HOME, ANDROID_SDK_ROOT, or the sdk.dir line
+REM in frontend\android\local.properties. We look in that order and, if none is
+REM found, fall back to the repo-local SDK created by setup-android-sdk.bat.
+set "SDK_DIR="
+if defined ANDROID_HOME set "SDK_DIR=%ANDROID_HOME%"
+if not defined SDK_DIR if defined ANDROID_SDK_ROOT set "SDK_DIR=%ANDROID_SDK_ROOT%"
+if not defined SDK_DIR if exist frontend\android\local.properties (
+    for /f "tokens=2 delims==" %%a in ('findstr /c:"sdk.dir" frontend\android\local.properties') do set "SDK_DIR=%%a"
+)
+if not defined SDK_DIR if exist .android-sdk\platforms set "SDK_DIR=%CD%\.android-sdk"
+
+if not defined SDK_DIR (
+    echo [ERROR] No Android SDK found.
+    echo.
+    echo   Either run  setup-android-sdk.bat  to install a local SDK automatically,
+    echo   or install Android Studio and set ANDROID_HOME.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Using Android SDK: %SDK_DIR%
+REM Always refresh local.properties so Gradle resolves the SDK on this machine.
+> frontend\android\local.properties echo sdk.dir=%SDK_DIR:\=/%
+
 cd frontend
 
 echo [1/3] Building the web dashboard (static export)...

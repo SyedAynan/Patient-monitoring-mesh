@@ -28,3 +28,6 @@ frontend/android/**/build/
 *.keystore
 *.jks
 key.properties
+
+# --- Local Android SDK (created by setup-android-sdk scripts) ---
+.android-sdk/
