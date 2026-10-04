@@ -90,12 +90,25 @@ lint/tmp/
 *.hprof
 
 # Cordova plugins for Capacitor
+# NOTE: the generated SOURCE files are committed intentionally — `cap copy` in
+# CI does not regenerate this subproject, so a fresh checkout needs it for
+# Gradle to resolve `include ':capacitor-cordova-android-plugins'`. We un-ignore
+# only the source/config files; its build/ output stays ignored.
 capacitor-cordova-android-plugins
+!capacitor-cordova-android-plugins/
+!capacitor-cordova-android-plugins/build.gradle
+!capacitor-cordova-android-plugins/cordova.variables.gradle
+!capacitor-cordova-android-plugins/src/
+!capacitor-cordova-android-plugins/src/**
 
-# Copied web assets
-app/src/main/assets/public
+# Copied web assets — committed intentionally for the same reason: the CI
+# release pipeline copies out/ in, but keeping the bundle tracked means a plain
+# `gradlew assembleDebug` on a fresh clone also produces a working APK.
+!app/src/main/assets/public
+!app/src/main/assets/public/**
 
-# Generated Config files
-app/src/main/assets/capacitor.config.json
-app/src/main/assets/capacitor.plugins.json
-app/src/main/res/xml/config.xml
+# Generated Config files — committed intentionally (CI writes these via a
+# Node copy step, not the Capacitor CLI).
+!app/src/main/assets/capacitor.config.json
+!app/src/main/assets/capacitor.plugins.json
+!app/src/main/res/xml/config.xml
