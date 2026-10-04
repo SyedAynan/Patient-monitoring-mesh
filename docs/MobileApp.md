@@ -7,6 +7,20 @@ native WebView, so there is one codebase for browser, PWA, and APK.
 > **⚠️ Note:** This is an educational/research prototype. The APK is a debug
 > build for local/LAN use, not a Play-Store release and not a medical device.
 
+## One-click download (GitHub Release)
+
+CI builds the APK automatically and attaches it to a release, so phones can
+install without any build tools:
+
+**<https://github.com/SyedAynan/Patient-monitoring-mesh/releases/latest/download/carenet-mesh.apk>**
+
+- Open that link on an Android phone → download → install (allow "unknown
+  sources" for your browser when prompted).
+- The workflow `.github/workflows/release-apk.yml` runs on every version tag
+  (`git tag v1.0.0 && git push origin v1.0.0`) and on manual trigger from the
+  **Actions** tab; it maintains a rolling `latest` pre-release asset.
+- The README has a download badge and a QR code pointing at the same URL.
+
 ## How it works
 
 ```
