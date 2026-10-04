@@ -887,17 +887,21 @@ export default function MonitoringDashboard() {
             <span className={connected ? 'text-emerald-400' : 'text-rose-400'}>
               {connected ? 'Gateway Connected' : 'Reconnecting...'}
             </span>
-            <button
-              onClick={connectUsbSerial}
-              className={`px-2 py-0.5 text-[10px] rounded-md border transition-colors ${
-                serialConnected
-                  ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
-                  : 'border-cyan-500/20 bg-cyan-500/8 text-cyan-300 hover:bg-cyan-500/12'
-              }`}
-            >
-              <Cpu className="size-3 inline mr-1" />
-              {serialConnected ? 'USB Connected' : 'Connect USB'}
-            </button>
+            {/* Web Serial (USB) is a desktop-browser feature; hide it inside
+                the Android WebView where navigator.serial doesn't exist. */}
+            {!isNative && (
+              <button
+                onClick={connectUsbSerial}
+                className={`px-2 py-0.5 text-[10px] rounded-md border transition-colors ${
+                  serialConnected
+                    ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                    : 'border-cyan-500/20 bg-cyan-500/8 text-cyan-300 hover:bg-cyan-500/12'
+                }`}
+              >
+                <Cpu className="size-3 inline mr-1" />
+                {serialConnected ? 'USB Connected' : 'Connect USB'}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1113,7 +1117,7 @@ export default function MonitoringDashboard() {
                     aria-pressed={dataMode === 'real'}
                   >Live hardware (backend mesh)</button>
                 </div>
-                {dataMode === 'real' && (
+                {dataMode === 'real' && !isNative && (
                   <button
                     onClick={connectUsbSerial}
                     className={`mt-2 w-full rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${serialConnected ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-cyan-500/20 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/12'}`}

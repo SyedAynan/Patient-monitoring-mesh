@@ -33,12 +33,22 @@ the phone itself — so the app must be told the PC's LAN IP at runtime.
 
 **Prerequisites (one-time):**
 
-- **Android Studio / Android SDK** — installs the SDK, build-tools, and a JDK.
-  After installing, open it once and accept the SDK licenses.
-- `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) pointing at the SDK, or a
-  `frontend/android/local.properties` file containing
-  `sdk.dir=C:\\path\\to\\Android\\Sdk` (Android Studio generates this).
 - Frontend deps installed — run `INSTALL.bat` / `./install.sh` once.
+- **JDK 17+** on PATH (or Android Studio, which bundles one).
+- An **Android SDK**. Two ways to get one:
+  - *Already have Android Studio?* Nothing to do — the build uses its SDK via
+    `ANDROID_HOME`.
+  - *No Android Studio?* Run the bundled installer once (downloads ~700 MB into
+    `.android-sdk/` at the repo root):
+
+    ```bash
+    setup-android-sdk.bat    # Windows
+    ./setup-android-sdk.sh   # macOS / Linux
+    ```
+
+The build scripts auto-detect the SDK (env var → `local.properties` → the
+repo-local `.android-sdk/`) and write `frontend/android/local.properties` for
+you.
 
 Then build:
 
@@ -95,6 +105,8 @@ host-loopback address **`10.0.2.2`** in Settings → Backend Server, or run
 | `frontend/android/` | Generated Android project |
 | `frontend/android/.../network_security_config.xml` | Cleartext-HTTP policy for the LAN backend |
 | `build-apk.bat` / `build-apk.sh` | One-command build launchers |
+| `setup-android-sdk.bat` / `.sh` | Install a local SDK (when Android Studio is absent) |
+| `.android-sdk/` | Repo-local SDK (gitignored, created by the setup script) |
 
 ## Release build
 

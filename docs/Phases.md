@@ -24,6 +24,10 @@
   demo script, final report).
 - **CURRENT PHASE:** Phase 8 complete — all phases complete (software)
 - **NEXT PHASE:** physical ESP32/ESP-NOW validation when hardware is available
+- **POST-PHASE-8 ADDITIONS:** native Android app (Capacitor) wrapping the
+  dashboard as an installable APK — see `docs/MobileApp.md`. A new
+  `Settings → Backend Server` field lets the APK reach the backend on the
+  ward LAN; `start.bat|sh --lan` binds the backend to `0.0.0.0` for that.
 - **DEFERRED:** physical ESP32/ESP-NOW validation, until hardware is available.
   Deferred by explicit decision on 2026-09-29. No radio result may be claimed
   before it runs on real boards.
