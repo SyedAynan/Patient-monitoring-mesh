@@ -79,7 +79,16 @@ jobs:
 
       - name: Build debug APK
         working-directory: frontend/android
-        run: ./gradlew assembleDebug --console=plain
+        env:
+          # setup-android exposes the SDK via ANDROID_HOME; export both for
+          # Gradle + AGP and write local.properties as a belt-and-suspenders
+          # fallback so sdk.dir resolves regardless of which is honoured.
+          ANDROID_HOME: ${{ env.ANDROID_HOME || env.ANDROID_SDK_ROOT }}
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT || env.ANDROID_HOME }}
+        run: |
+          echo "sdk.dir=${ANDROID_SDK_ROOT:-$ANDROID_HOME}" > local.properties
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --console=plain
 
       - name: Rename APK
         working-directory: frontend
