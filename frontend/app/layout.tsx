@@ -1,7 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
-import { StarfieldCanvas } from '@/components/starfield-canvas'
 import './globals.css'
 
 const inter = Inter({
@@ -10,8 +9,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Cosmic Mesh Monitor | Deep-Space Clinical Telemetry',
-  description: 'Real-time patient telemetry, 3D mesh network visualizer, alert triage, and edge intelligence.',
+  title: 'CareNet IoT — Patient Monitoring Mesh',
+  description: 'Resilient edge-intelligence patient monitoring mesh. Real-time vitals telemetry, mesh network visualization, and clinical alert triage.',
   icons: {
     icon: [
       {
@@ -29,7 +28,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: 'dark',
-  themeColor: '#000000',
+  themeColor: '#060a14',
 }
 
 export default function RootLayout({
@@ -39,8 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`dark ${inter.variable}`}>
-      <body className="relative bg-black text-slate-100 antialiased">
-        <StarfieldCanvas />
+      <body className="relative antialiased">
         <div className="relative z-10">{children}</div>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

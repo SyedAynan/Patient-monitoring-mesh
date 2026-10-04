@@ -4,35 +4,75 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ===================================================================
+   CareNet IoT — Design Tokens
+   "Calm Clinical Operations Console + Edge Network Observatory"
+   =================================================================== */
+
 :root {
   color-scheme: dark;
-  --background: #000000;
-  --foreground: #f0f6fc;
-  --card: #050505;
-  --card-foreground: #f0f6fc;
-  --popover: #050505;
-  --popover-foreground: #f0f6fc;
-  --primary: #38d9ef;
-  --primary-foreground: #000000;
-  --secondary: #0a0a0c;
-  --secondary-foreground: #d0dbe9;
-  --muted: #08080a;
-  --muted-foreground: #7e8e9f;
-  --accent: #0c0c0e;
-  --accent-foreground: #f0f6fc;
-  --destructive: #f43f5e;
-  --border: rgba(56, 189, 248, 0.10);
-  --input: rgba(56, 189, 248, 0.14);
-  --ring: #38d9ef;
-  --radius: 0.85rem;
-  --sidebar: #000000;
-  --sidebar-foreground: #f0f6fc;
-  --sidebar-primary: #38d9ef;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #08080a;
-  --sidebar-accent-foreground: #f0f6fc;
-  --sidebar-border: rgba(56, 189, 248, 0.10);
-  --sidebar-ring: #38d9ef;
+
+  /* Surfaces */
+  --background: #060a14;
+  --foreground: #e2e8f0;
+  --card: #0b1120;
+  --card-foreground: #e2e8f0;
+  --popover: #0b1120;
+  --popover-foreground: #e2e8f0;
+  --surface-raised: #0f1729;
+  --surface-overlay: #131d32;
+
+  /* Primary — Cyan/Teal */
+  --primary: #22d3ee;
+  --primary-foreground: #060a14;
+  --primary-muted: rgba(34, 211, 238, 0.12);
+
+  /* Secondary */
+  --secondary: #131d32;
+  --secondary-foreground: #cbd5e1;
+
+  /* Muted */
+  --muted: #0f1729;
+  --muted-foreground: #64748b;
+
+  /* Accent */
+  --accent: #131d32;
+  --accent-foreground: #e2e8f0;
+
+  /* Semantic Status Colors */
+  --success: #10b981;
+  --success-muted: rgba(16, 185, 129, 0.12);
+  --warning: #f59e0b;
+  --warning-muted: rgba(245, 158, 11, 0.12);
+  --critical: #ef4444;
+  --critical-muted: rgba(239, 68, 68, 0.12);
+  --info: #3b82f6;
+  --info-muted: rgba(59, 130, 246, 0.12);
+  --analytics: #8b5cf6;
+  --analytics-muted: rgba(139, 92, 246, 0.12);
+
+  /* Destructive */
+  --destructive: #ef4444;
+
+  /* Borders */
+  --border: rgba(148, 163, 184, 0.08);
+  --border-subtle: rgba(148, 163, 184, 0.05);
+  --border-active: rgba(34, 211, 238, 0.25);
+  --input: rgba(148, 163, 184, 0.10);
+  --ring: #22d3ee;
+
+  /* Radius */
+  --radius: 0.625rem;
+
+  /* Sidebar */
+  --sidebar: #080e1c;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #22d3ee;
+  --sidebar-primary-foreground: #060a14;
+  --sidebar-accent: #0f1729;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: rgba(148, 163, 184, 0.06);
+  --sidebar-ring: #22d3ee;
 }
 
 @theme inline {
@@ -60,239 +100,317 @@
   --radius-xl: calc(var(--radius) * 1.4);
 }
 
+/* ===================================================================
+   Base Styles
+   =================================================================== */
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-black text-foreground antialiased selection:bg-cyan-500/30 selection:text-cyan-200;
+    @apply bg-background text-foreground antialiased;
     font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #000000;
     overflow-x: hidden;
   }
   button, input, textarea {
     font: inherit;
   }
+
+  /* Focus visible for accessibility */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-cyan-500/60;
+  }
 }
 
-/* Premium Scrollbar */
+/* ===================================================================
+   Scrollbar — Thin, unobtrusive
+   =================================================================== */
+
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.18);
+  background: rgba(148, 163, 184, 0.15);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgba(148, 163, 184, 0.25);
 }
 
-/* Premium Glass Metric Cards */
-.metric-card {
-  @apply relative overflow-hidden rounded-2xl border border-cyan-500/10 p-3.5 backdrop-blur-xl transition-all duration-300;
-  background: linear-gradient(135deg, rgba(8,8,12,0.9) 0%, rgba(2,2,4,0.95) 100%);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.8), inset 0 1px 0 rgba(56,189,248,0.06);
+/* ===================================================================
+   Panel — Clean glass surface with subtle borders
+   =================================================================== */
+
+.panel {
+  @apply overflow-hidden rounded-xl border border-border;
+  background: var(--card);
 }
+
+.panel-header {
+  @apply flex items-center justify-between gap-3 border-b border-border px-4 py-2.5;
+}
+
+.section-title {
+  @apply text-sm font-semibold tracking-tight text-slate-100;
+}
+
+.section-subtitle {
+  @apply mt-0.5 text-xs text-slate-500;
+}
+
+/* ===================================================================
+   Metric Card — Vital sign display cards
+   =================================================================== */
+
+.metric-card {
+  @apply relative overflow-hidden rounded-xl border border-border p-3.5 transition-all duration-200;
+  background: var(--card);
+}
+
 .metric-card::after {
   content: '';
-  @apply pointer-events-none absolute inset-x-3 top-0 h-px;
-  background: linear-gradient(to right, transparent, rgba(56,189,248,0.25), transparent);
-}
-.metric-card:hover {
-  @apply border-cyan-400/25;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.8), 0 0 20px rgba(34,211,238,0.06), inset 0 1px 0 rgba(56,189,248,0.1);
-  transform: translateY(-1px);
+  @apply pointer-events-none absolute inset-x-0 top-0 h-px;
+  background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.06), transparent);
 }
 
+.metric-card:hover {
+  @apply border-slate-700/60;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.metric-card:focus-visible {
+  @apply outline-2 outline-offset-2 outline-cyan-500/60;
+}
+
+/* Metric card active states with semantic glow — used sparingly */
+.metric-card.active-hr {
+  @apply border-rose-500/30;
+  box-shadow: 0 0 12px rgba(244,63,94,0.12);
+}
+.metric-card.active-spo2 {
+  @apply border-cyan-500/30;
+  box-shadow: 0 0 12px rgba(34,211,238,0.12);
+}
+.metric-card.active-rr {
+  @apply border-violet-500/30;
+  box-shadow: 0 0 12px rgba(139,92,246,0.12);
+}
+.metric-card.active-temp {
+  @apply border-amber-500/30;
+  box-shadow: 0 0 12px rgba(245,158,11,0.12);
+}
+
+/* ===================================================================
+   Metric Icon — Compact icon container for vital/status indicators
+   =================================================================== */
+
 .metric-icon {
-  @apply grid size-9 place-items-center rounded-xl ring-1 ring-inset ring-white/10;
+  @apply grid size-8 place-items-center rounded-lg;
 }
 .metric-icon svg {
   @apply size-4;
 }
-.metric-icon.cyan {
-  @apply bg-cyan-400/15 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.2)];
+.metric-icon.cyan    { @apply bg-cyan-500/10 text-cyan-400; }
+.metric-icon.emerald { @apply bg-emerald-500/10 text-emerald-400; }
+.metric-icon.amber   { @apply bg-amber-500/10 text-amber-400; }
+.metric-icon.violet  { @apply bg-violet-500/10 text-violet-400; }
+.metric-icon.rose    { @apply bg-rose-500/10 text-rose-400; }
+.metric-icon.blue    { @apply bg-blue-500/10 text-blue-400; }
+
+/* ===================================================================
+   Status Indicator — Semantic status dots with labels
+   =================================================================== */
+
+.status-dot {
+  @apply size-2 rounded-full flex-shrink-0;
 }
-.metric-icon.emerald {
-  @apply bg-emerald-400/15 text-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.2)];
+.status-dot.online   { @apply bg-emerald-400; }
+.status-dot.attention { @apply bg-amber-400; }
+.status-dot.critical  { @apply bg-rose-500; }
+.status-dot.stale     { @apply bg-slate-500; }
+
+.status-badge {
+  @apply inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium;
 }
-.metric-icon.amber {
-  @apply bg-amber-400/15 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.2)];
+.status-badge.online {
+  @apply border-emerald-500/25 bg-emerald-500/8 text-emerald-400;
 }
-.metric-icon.violet {
-  @apply bg-violet-400/15 text-violet-300 shadow-[0_0_15px_rgba(167,139,250,0.2)];
+.status-badge.attention {
+  @apply border-amber-500/25 bg-amber-500/8 text-amber-400;
+}
+.status-badge.critical {
+  @apply border-rose-500/25 bg-rose-500/8 text-rose-400;
+}
+.status-badge.stale {
+  @apply border-slate-500/25 bg-slate-500/8 text-slate-400;
 }
 
-/* Premium Glass Panel */
-.panel {
-  @apply overflow-hidden rounded-2xl border border-cyan-500/10 backdrop-blur-2xl;
-  background: linear-gradient(180deg, rgba(8,8,12,0.9) 0%, rgba(2,2,4,0.95) 100%);
-  box-shadow: 0 16px 64px rgba(0,0,0,0.8), inset 0 1px 0 rgba(56,189,248,0.05);
-}
-.panel-header {
-  @apply flex items-start justify-between gap-4 border-b border-white/8 px-4 py-3;
-  background: linear-gradient(to right, rgba(56,189,248,0.03), transparent, rgba(139,92,246,0.03));
-}
-.section-title {
-  @apply text-sm font-semibold tracking-wide text-slate-100;
-}
-.section-subtitle {
-  @apply mt-0.5 text-[11px] text-slate-400;
-}
+/* ===================================================================
+   Network Topology — Nodes and Gateway
+   =================================================================== */
 
 .network-large {
-  @apply relative min-h-[380px] overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#02050e]/90 shadow-inner;
-  background-image: radial-gradient(rgba(56, 189, 248, 0.15) 1px, transparent 1px),
-                    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
-  background-size: 24px 24px, 96px 96px, 96px 96px;
-}
-.network-gateway {
-  @apply absolute left-1/2 top-1/2 grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-2xl border border-cyan-300/50 bg-cyan-400/15 text-cyan-200 shadow-[0_0_0_8px_rgba(34,211,238,0.04),0_0_60px_rgba(34,211,238,0.35)];
-}
-.network-node {
-  @apply absolute flex -translate-x-1/2 items-center gap-3;
-}
-.network-node span {
-  @apply grid size-10 place-items-center rounded-xl border border-emerald-300/40 bg-emerald-400/15 text-emerald-300 shadow-[0_0_25px_rgba(16,185,129,0.25)];
-}
-.network-node span.offline {
-  @apply border-rose-300/40 bg-rose-400/15 text-rose-300 shadow-[0_0_25px_rgba(244,63,94,0.25)];
-}
-.network-node p {
-  @apply font-mono text-xs text-slate-200;
-}
-.network-node small {
-  @apply text-[10px] text-slate-400;
+  @apply relative min-h-[300px] overflow-hidden rounded-xl border border-border bg-[#060e1c];
+  background-image:
+    radial-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(148, 163, 184, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px, 80px 80px, 80px 80px;
 }
 
-/* Time range pill buttons */
+.network-gateway {
+  @apply absolute left-1/2 top-1/2 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-xl border border-cyan-400/30 bg-cyan-500/10 text-cyan-300;
+}
+
+.network-node {
+  @apply absolute flex -translate-x-1/2 items-center gap-2;
+}
+.network-node span {
+  @apply grid size-9 place-items-center rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-400;
+}
+.network-node span.offline {
+  @apply border-rose-400/30 bg-rose-500/10 text-rose-400;
+}
+.network-node p {
+  @apply font-mono text-xs text-slate-300;
+}
+.network-node small {
+  @apply text-[10px] text-slate-500;
+}
+
+/* ===================================================================
+   Time Range Buttons
+   =================================================================== */
+
 .time-range-btn {
-  @apply rounded-md px-2.5 py-1 text-[10px] font-bold font-mono tracking-wider transition-all;
+  @apply rounded-md px-2.5 py-1 text-[10px] font-semibold font-mono tracking-wider transition-all;
 }
 .time-range-btn.active {
-  @apply bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_10px_rgba(34,211,238,0.15)];
+  @apply bg-cyan-500/15 text-cyan-300 border border-cyan-500/30;
 }
 .time-range-btn:not(.active) {
   @apply text-slate-500 hover:text-slate-300 border border-transparent;
 }
 
-/* Risk range labels */
+/* ===================================================================
+   Risk Range Labels
+   =================================================================== */
+
 .risk-range-row {
-  @apply flex items-center justify-between text-[10px] font-mono py-0.5;
+  @apply flex items-center justify-between text-[11px] font-mono py-0.5;
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
+/* ===================================================================
+   Animations — Minimal, purposeful
+   =================================================================== */
+
+/* Pulse for live indicators only */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-live-pulse {
+  animation: livePulse 2s ease-in-out infinite;
 }
 
-.cosmic-pulse {
-  animation: pulseGlow 3s ease-in-out infinite;
-}
-
-/* Live Chart Scan Sweep Animation */
+/* Subtle chart sweep — reduced from original */
 @keyframes chartSweep {
-  0% {
-    left: -5%;
-    opacity: 0;
-  }
-  15% {
-    opacity: 0.8;
-  }
-  85% {
-    opacity: 0.8;
-  }
-  100% {
-    left: 105%;
-    opacity: 0;
-  }
+  0% { left: -5%; opacity: 0; }
+  15% { opacity: 0.5; }
+  85% { opacity: 0.5; }
+  100% { left: 105%; opacity: 0; }
 }
-
 .animate-chart-sweep {
-  animation: chartSweep 2.2s linear infinite;
+  animation: chartSweep 3s linear infinite;
 }
 
 @keyframes chartSweepReverse {
-  0% {
-    right: -5%;
-    opacity: 0;
-  }
-  20% {
-    opacity: 0.6;
-  }
-  80% {
-    opacity: 0.6;
-  }
-  100% {
-    right: 105%;
-    opacity: 0;
-  }
+  0% { right: -5%; opacity: 0; }
+  20% { opacity: 0.3; }
+  80% { opacity: 0.3; }
+  100% { right: 105%; opacity: 0; }
 }
-
 .animate-chart-sweep-reverse {
-  animation: chartSweepReverse 3.8s linear infinite;
+  animation: chartSweepReverse 5s linear infinite;
 }
 
-/* Grid Motion Drift Animation */
+/* Grid drift for chart backgrounds */
 @keyframes gridDrift {
-  0% {
-    background-position: 0px 0px;
-  }
-  100% {
-    background-position: 40px 0px;
-  }
+  0% { background-position: 0px 0px; }
+  100% { background-position: 40px 0px; }
 }
-
 .animate-grid-drift {
-  animation: gridDrift 8s linear infinite;
+  animation: gridDrift 12s linear infinite;
 }
 
-/* Moving Wave Shimmer */
+/* Data flow animation for connectivity indicator */
+@keyframes dataFlow {
+  0% { transform: translateX(-100%); opacity: 0.2; }
+  50% { opacity: 0.8; }
+  100% { transform: translateX(300%); opacity: 0.2; }
+}
+.animate-data-flow {
+  animation: dataFlow 2s infinite ease-in-out;
+}
+
+/* Cosmic pulse — retained but toned down */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+.cosmic-pulse {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+/* Wave shimmer */
 @keyframes waveShimmer {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
-
 .animate-wave-shimmer {
   background-size: 200% 200%;
-  animation: waveShimmer 4s ease infinite;
+  animation: waveShimmer 6s ease infinite;
 }
 
-/* Dashboard column scroll */
+/* ===================================================================
+   Dashboard Layout & Scrolling
+   =================================================================== */
+
 .dashboard-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(56, 189, 248, 0.15) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.12) transparent;
 }
+
+/* ===================================================================
+   Responsive Overrides
+   =================================================================== */
 
 @media (max-width: 640px) {
   .panel-header {
-    @apply flex-col;
+    @apply flex-col gap-2;
   }
 }
 
-/* Responsive overrides for mobile stacking */
 @media (max-width: 1023px) {
   .dashboard-grid-main {
     grid-template-columns: 1fr !important;
     height: auto !important;
     overflow-y: auto !important;
   }
+}
+
+/* ===================================================================
+   Disclaimer Bar
+   =================================================================== */
+
+.disclaimer-bar {
+  @apply text-[10px] font-mono text-slate-500 text-center py-1 border-t border-border;
+  background: rgba(6, 10, 20, 0.95);
 }
