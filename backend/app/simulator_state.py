@@ -8,15 +8,19 @@ routes read from the stores this module populates.
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from simulator.topology import build_standard_mesh, Mesh, PATIENT_PROFILES, GATEWAY_ID
 from simulator.roles import Gateway, SensorNode
 from shared.protocol import decode_packet
+
+from .persistence import PersistedMeasurement, Persistence
 
 
 # ---------------------------------------------------------------------------
@@ -80,10 +84,19 @@ class SimulatorState:
         self._task: asyncio.Task | None = None
         self._tick_count: int = 0
         self._start_ms: int = int(time.time() * 1000)
+        # One simulator second per tick by default; tests shrink this so the
+        # stores fill within a test window.
+        self._tick_interval: float = 1.0
+        # SQLite persistence, created lazily so tests can inject a temp path or
+        # None to disable it entirely.
+        self.persistence: Persistence | None = None
 
         # Stores — bounded so memory does not grow forever.
         self.devices: dict[str, DeviceRecord] = {}
         self.measurements: deque[MeasurementRecord] = deque(maxlen=5000)
+        # Mirror the DB's UNIQUE (device_id, sequence_number) constraint in
+        # memory so the in-memory fallback path never serves duplicates.
+        self._seen_measurement_keys: set[tuple[str, int]] = set()
         self.alerts: dict[str, AlertRecord] = {}
         self.network_events: deque[NetworkEvent] = deque(maxlen=200)
 
@@ -115,7 +128,29 @@ class SimulatorState:
         self._active_conditions: set[str] = set()
 
     def start(self) -> None:
-        """Build the mesh and start the background tick loop."""
+        """Build the mesh and start the background tick loop.
+
+        Persistence: created here from APP_DATA_DIR (or the default .data dir)
+        unless a test injected its own instance or set it to None explicitly.
+        """
+        if self.persistence is None and os.environ.get("REMPM_DISABLE_DB") != "1":
+            data_dir = os.environ.get("APP_DATA_DIR", ".data")
+            self.persistence = Persistence(Path(data_dir) / "app.db")
+
+        # A fresh mesh restarts every counter at zero, so the harvest cursors
+        # and stores must reset too.
+        self._prev_gateway_accepted = 0
+        self._prev_gateway_frames = 0
+        self._prev_node_route_changes = {}
+        self._prev_relay_buffered = {}
+        self._prev_relay_backfilled = {}
+        self._prev_node_last_seen = {}
+        self._seen_measurement_keys.clear()
+        self._active_conditions.clear()
+        self.measurements.clear()
+        self.alerts.clear()
+        self.network_events.clear()
+
         self.mesh = build_standard_mesh(
             seed=20260928,
             patient_count=5,
@@ -135,6 +170,9 @@ class SimulatorState:
     def stop(self) -> None:
         if self._task:
             self._task.cancel()
+        if self.persistence is not None:
+            self.persistence.close()
+            self.persistence = None
 
     def subscribe_ws(self) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue(maxsize=100)
@@ -179,12 +217,22 @@ class SimulatorState:
             last_seen_at_ms=self._start_ms,
             signal_quality=1.0,
         )
+        if self.persistence is not None:
+            for d in self.devices.values():
+                self.persistence.upsert_device(
+                    device_id=d.device_id,
+                    patient_id=d.patient_id,
+                    role=d.role,
+                    status=d.status,
+                    last_seen_at_ms=d.last_seen_at_ms,
+                    signal_quality=d.signal_quality,
+                )
 
     async def _tick_loop(self) -> None:
-        """Tick the mesh every ~1 second, then harvest new data."""
+        """Tick the mesh, then harvest new data. Interval is configurable for tests."""
         while True:
             try:
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(self._tick_interval)
                 self._tick_count += 1
                 captured_at_ms = self._start_ms + self._tick_count * 1000
                 assert self.mesh is not None
@@ -210,6 +258,12 @@ class SimulatorState:
                 packet = gw.received.get((device_id, seq))
                 if packet is None:
                     continue
+                # In-memory dedup: skip if we already stored this key (mirrors
+                # the DB's UNIQUE constraint / INSERT OR IGNORE).
+                mkey = (packet["device_id"], packet["sequence_number"])
+                if mkey in self._seen_measurement_keys:
+                    continue
+                self._seen_measurement_keys.add(mkey)
                 m = MeasurementRecord(
                     device_id=packet["device_id"],
                     patient_id=packet["patient_id"],
@@ -223,6 +277,24 @@ class SimulatorState:
                     risk=packet.get("risk"),
                 )
                 self.measurements.append(m)
+
+                # Persist. The UNIQUE (device_id, sequence_number) constraint is
+                # the durable half of FR-05: a replayed packet is a no-op here.
+                if self.persistence is not None:
+                    self.persistence.write_measurement(PersistedMeasurement(
+                        device_id=m.device_id,
+                        patient_id=m.patient_id,
+                        sequence_number=m.sequence_number,
+                        captured_at_ms=m.captured_at_ms,
+                        received_at_ms=captured_at_ms,
+                        heart_rate_bpm=m.heart_rate_bpm,
+                        spo2_percent=m.spo2_percent,
+                        temperature_c=m.temperature_c,
+                        signal_quality=m.signal_quality,
+                        priority=m.priority,
+                        risk_level=(m.risk or {}).get("level"),
+                        risk_score=(m.risk or {}).get("score"),
+                    ))
 
                 # Update device record
                 dev = self.devices.get(device_id)
@@ -282,6 +354,8 @@ class SimulatorState:
                     detail=f"Rerouted to {node.active_hop}",
                 )
                 self.network_events.append(evt)
+                if self.persistence is not None:
+                    self.persistence.write_event(_event_to_dict(evt))
                 self._prev_node_route_changes[node.device_id] = node.stats.route_changes
                 await self._broadcast({
                     "type": "network_event",
@@ -358,6 +432,8 @@ class SimulatorState:
                 raised_at_ms=now_ms,
             )
             self.alerts[alert.alert_id] = alert
+            if self.persistence is not None:
+                self.persistence.write_alert(_alert_to_dict(alert))
             await self._broadcast({
                 "type": "alert",
                 "payload": _alert_to_dict(alert),

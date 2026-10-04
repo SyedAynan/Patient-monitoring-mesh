@@ -7,15 +7,29 @@ export function ECGWaveformCanvas({
   height = 48,
   color = '#22c55e',
   hr = 72,
+  spo2 = 98,
+  temp = 36.8,
+  status = 'normal',
+  riskScore = 15,
   enableBeep = false,
 }: {
   height?: number
   color?: string
   hr?: number
+  spo2?: number
+  temp?: number
+  status?: string
+  riskScore?: number
   enableBeep?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const lastPeakRef = useRef<number>(0)
+  
+  // Keep props up-to-date in ref to prevent restarting animation loop & resetting offset on telemetry updates
+  const propsRef = useRef({ height, color, hr, spo2, temp, status, riskScore, enableBeep })
+  useEffect(() => {
+    propsRef.current = { height, color, hr, spo2, temp, status, riskScore, enableBeep }
+  }, [height, color, hr, spo2, temp, status, riskScore, enableBeep])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -38,16 +52,19 @@ export function ECGWaveformCanvas({
     window.addEventListener('resize', handleResize)
 
     function getEcgY(x: number, h: number): number {
+      const { hr: currentHr, spo2: currentSpo2, temp: currentTemp, status: currentStatus, riskScore: currentRisk, enableBeep: isBeepEnabled } = propsRef.current
       const mid = h / 2
-      const period = 120
+      const period = 140
       const pos = (x + offset) % period
 
-      // QRS Peak Detection for Heartbeat Sound Playback
-      if (enableBeep && pos >= 49 && pos <= 51) {
+      // QRS Peak Detection for SpO2 Pitched Heartbeat Audio
+      if (isBeepEnabled && pos >= 48 && pos <= 52) {
         const now = Date.now()
-        if (now - lastPeakRef.current > 400) {
+        // Minimum interval based on patient heart rate (60000 / hr * 0.7)
+        const minInterval = (60000 / Math.max(40, currentHr)) * 0.7
+        if (now - lastPeakRef.current > minInterval) {
           lastPeakRef.current = now
-          monitorAudio.playHeartbeatBeep(hr)
+          monitorAudio.playHeartbeatBeep({ hr: currentHr, spo2: currentSpo2, temp: currentTemp, status: currentStatus, riskScore: currentRisk })
         }
       }
 
@@ -67,18 +84,22 @@ export function ECGWaveformCanvas({
         // T wave
         return mid - Math.sin(((pos - 65) / 17) * Math.PI) * (h * 0.18)
       }
-      return mid + (Math.random() - 0.5) * 1.5
+      return mid + Math.sin(x * 0.05 + offset * 0.02) * 0.8
     }
 
     function draw() {
-      offset += 1.8
+      const { hr: currentHr, color: currentColor } = propsRef.current
+      const clampedHr = Math.max(40, Math.min(180, currentHr))
+      const speed = (clampedHr / 72) * 1.5
+      offset += speed
+
       ctx!.clearRect(0, 0, width, height)
 
       ctx!.beginPath()
       ctx!.lineWidth = 2
-      ctx!.strokeStyle = color
-      ctx!.shadowBlur = 8
-      ctx!.shadowColor = color
+      ctx!.strokeStyle = currentColor
+      ctx!.shadowBlur = 6
+      ctx!.shadowColor = currentColor
 
       for (let x = 0; x < width; x += 2) {
         const y = getEcgY(x, height)
@@ -100,7 +121,7 @@ export function ECGWaveformCanvas({
       cancelAnimationFrame(animId)
       window.removeEventListener('resize', handleResize)
     }
-  }, [height, color, hr, enableBeep])
+  }, [height])
 
   return <canvas ref={canvasRef} className="w-full" style={{ height: `${height}px` }} />
 }
