@@ -11,18 +11,56 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
+[![Download APK](https://img.shields.io/badge/📲_Download_APK-latest-blue?style=for-the-badge&logo=android&logoColor=white)](https://github.com/SyedAynan/Patient-monitoring-mesh/releases/latest/download/carenet-mesh.apk)
 
 </div>
 
 > **⚠️ Disclaimer:** This is an educational/research prototype. It is not a certified medical device and does not replace clinical judgment.
 
+<div align="center">
+
+**📱 One-tap install on Android:** open the
+[Latest Release](https://github.com/SyedAynan/Patient-monitoring-mesh/releases/latest)
+page on your phone, tap **`carenet-mesh.apk`**, allow the download, then tap
+**Install** (allow "unknown sources" for your browser when asked).
+The app connects to the backend on your PC — see
+[docs/MobileApp.md](docs/MobileApp.md) for the 2-step setup.
+
+</div>
+
 ## <img src="./assets/toc_icon.png" width="24" align="center"> Table of Contents
+- [📲 Install on Android](#-install-on-android)
 - [<img src="./assets/star_icon.png" width="16" align="center"> Core Features](#-core-features)
 - [<img src="./assets/books_icon.png" width="16" align="center"> Documentation](#-documentation)
 - [<img src="./assets/rocket_icon.png" width="16" align="center"> Current Status](#-current-status)
 - [<img src="./assets/tools_icon.png" width="16" align="center"> Setup & Development](#️-setup--development)
 - [<img src="./assets/handshake_icon.png" width="16" align="center"> Contributing](#-contributing)
 - [<img src="./assets/license_icon.png" width="16" align="center"> License](#-license)
+
+## 📲 Install on Android
+
+> **One-tap install — no build tools needed.**
+
+<div align="center">
+
+### 👉 [**Download CareNet Mesh APK**](https://github.com/SyedAynan/Patient-monitoring-mesh/releases/latest/download/carenet-mesh.apk) 👈
+
+[![Release APK](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/release-apk.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/release-apk.yml)
+
+**Scan from your phone** — opens the download:
+
+<img src="./assets/apk-download-qr.png" width="180" alt="QR code linking to the CareNet Mesh APK download" />
+
+</div>
+
+**Steps:**
+1. Tap the download link above on your phone (or scan the QR code).
+2. Android will ask to allow installs from your browser — tap **Allow**.
+3. Tap the downloaded `carenet-mesh.apk` to install.
+4. Open the app → **Settings** → enter your PC's LAN IP (e.g. `192.168.1.10`).
+5. Make sure the backend is running on your PC (`start.bat --lan` / `./start.sh --lan`) and both devices are on the **same Wi-Fi**.
+
+> **How it's built:** A [GitHub Actions workflow](.github/workflows/release-apk.yml) builds the APK automatically and attaches it to the latest release. Push a version tag (`git tag v1.0.0 && git push origin v1.0.0`) for a named release, or trigger it manually from the Actions tab. See [docs/MobileApp.md](docs/MobileApp.md) for local builds and details.
 
 ## <img src="./assets/star_icon.png" width="24" align="center"> Core Features
 
