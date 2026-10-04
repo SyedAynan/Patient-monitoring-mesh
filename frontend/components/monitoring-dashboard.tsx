@@ -216,9 +216,6 @@ export default function MonitoringDashboard() {
         alert_id: `alert-tachy-${Date.now()}`,
         patient_id: selectedId,
         device_id: selected?.deviceId || 'device-01',
-        metric: 'heart_rate',
-        value: 145,
-        threshold: 120,
         severity: 'critical',
         message: `CRITICAL: Severe Tachycardia (145 bpm) on Patient ${selectedId.replace('patient-', 'P-00')}`,
         raised_at_ms: Date.now(),
@@ -233,9 +230,6 @@ export default function MonitoringDashboard() {
         alert_id: `alert-hypo-${Date.now()}`,
         patient_id: selectedId,
         device_id: selected?.deviceId || 'device-01',
-        metric: 'spo2',
-        value: 88.5,
-        threshold: 94,
         severity: 'critical',
         message: `CRITICAL: Severe Hypoxia Desaturation (88.5% SpO₂) on Patient ${selectedId.replace('patient-', 'P-00')}`,
         raised_at_ms: Date.now(),
@@ -250,9 +244,6 @@ export default function MonitoringDashboard() {
         alert_id: `alert-fever-${Date.now()}`,
         patient_id: selectedId,
         device_id: selected?.deviceId || 'device-01',
-        metric: 'temperature',
-        value: 39.6,
-        threshold: 38.0,
         severity: 'warning',
         message: `WARNING: High Fever Pyrexia (39.6 °C) on Patient ${selectedId.replace('patient-', 'P-00')}`,
         raised_at_ms: Date.now(),
@@ -370,6 +361,7 @@ export default function MonitoringDashboard() {
           const newTemp = Math.max(35.8, Math.min(40.5, Number((p.temp + (Math.random() - 0.5) * 0.04).toFixed(1))))
           const newRr = Math.max(10, Math.min(32, Math.round(14 + (newHr / 10 - 7))))
           const needsAttention = newHr > 120 || newSpo2 < 94 || newTemp > 38.5
+          const nextStatus: Status = needsAttention ? 'attention' : 'online'
 
           return {
             ...p,
@@ -377,7 +369,7 @@ export default function MonitoringDashboard() {
             spo2: newSpo2,
             temp: newTemp,
             rr: newRr,
-            status: needsAttention ? 'attention' : 'online',
+            status: nextStatus,
           }
         })
 
