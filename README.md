@@ -7,7 +7,7 @@
 
 *A real-time, multi-patient monitoring prototype in which patient sensor nodes collect vital signs, perform local risk analysis, and reliably deliver prioritized health telemetry through a resilient local mesh network.*
 
-[![Phase](https://img.shields.io/badge/Progress-Phase%205%20In%20Progress-blue.svg)](#-current-status)
+[![Phase](https://img.shields.io/badge/Progress-Phase%207%20Complete-blue.svg)](#-current-status)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](.github/LICENSE)
 [![CI](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/SyedAynan/Patient-monitoring-mesh/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md)
@@ -47,8 +47,8 @@ Detailed documentation is stored in the `/docs` directory. Read through them to 
 
 ## <img src="./assets/rocket_icon.png" width="24" align="center"> Current Status
 
-### Progress: Phase 5 In Progress (of 8)
-Four phases are done (120 passing tests). Phase 5 is actively being built:
+### Progress: Phase 7 Complete (of 8)
+Seven phases are done, verified by 228 passing tests:
 
 - **Phase 1 (Foundation) — complete:** versioned packet schema, authoritative
   validator with stable error codes, language-neutral conformance fixtures, and a
@@ -62,14 +62,27 @@ Four phases are done (120 passing tests). Phase 5 is actively being built:
 - **Phase 4 (Resilient routing & store-and-forward) — complete:** an alternate
   relay with failure-triggered reroute, a bounded relay buffer that backfills
   after a gateway interruption, and a failure-scenario harness (`tools/resilience_demo.py`).
-- **Phase 5 (Backend & dashboard) — in progress:** FastAPI backend wrapping the
-  simulator mesh with REST + WebSocket APIs. Next.js dashboard with live patient
-  monitoring, 3D mesh visualization, trend charts, alerts, and network status.
-  See [Running the Dashboard](#running-the-dashboard) below.
+- **Phase 5 (Backend & dashboard) — complete:** FastAPI backend with the
+  envelope contract, SQLite persistence with the `(device_id, sequence_number)`
+  uniqueness constraint, a WebSocket realtime stream, and the React/Next.js
+  dashboard with live patient monitoring, 3D digital-twin view, trend charts,
+  alerts, and network status. See [Running the Dashboard](#running-the-dashboard).
+- **Phase 6 (Edge intelligence) — complete:** a transparent rule-based risk
+  engine shared by edge nodes and the backend (so local and authoritative
+  scoring cannot drift), node-local scoring that escalates critical packets,
+  risk snapshots with full evidence in the database, risk explanation/config
+  endpoints, and the dashboard rendering backend risk. Every risk state is
+  explainable from recorded inputs; ECG/ML stays deferred.
+- **Phase 7 (Security) — complete:** HMAC-SHA256 frame authentication verified
+  at the gateway before payloads are parsed, provisioned device credentials with
+  revocation, an operator-token guard for mutations (lab mode by default, token
+  mode opt-in, fail-closed when unconfigured), and an append-only audit trail.
+  This is a **lab security baseline**, not a production hardening — the demo
+  master key is seed-derived and no TLS deployment story exists yet.
 
 **Not yet built:**
 
-- **Phases 6–8:** edge intelligence/risk scoring, security, and evaluation.
+- **Phase 8:** evaluation experiment runner, demo mode, final documentation.
 - Resilience claims are *simulated*: reroute-in-2-seconds and 100% recovery
   completeness are demo observations on one clock, not measured radio results.
   The recorded experiments that turn them into evaluation metrics are Phase 8.

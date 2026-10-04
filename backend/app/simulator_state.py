@@ -19,6 +19,7 @@ from typing import Any
 from simulator.topology import build_standard_mesh, Mesh, PATIENT_PROFILES, GATEWAY_ID
 from simulator.roles import Gateway, SensorNode
 from shared.protocol import decode_packet
+from shared.risk import DEFAULT_CONFIG, RiskConfig, assess
 
 from .persistence import PersistedMeasurement, Persistence
 
@@ -90,6 +91,7 @@ class SimulatorState:
         # SQLite persistence, created lazily so tests can inject a temp path or
         # None to disable it entirely.
         self.persistence: Persistence | None = None
+        self._owns_persistence: bool = False
 
         # Stores — bounded so memory does not grow forever.
         self.devices: dict[str, DeviceRecord] = {}
@@ -118,11 +120,18 @@ class SimulatorState:
         self._prev_node_last_seen: dict[str, int] = {}
         self._stale_threshold_ms: int = 12_000
 
-        # Alert thresholds
+        # Alert thresholds — initial values of the shared risk config, kept as
+        # attributes so existing callers/tests can read them. The authoritative
+        # rule set is `self._risk_config`; the backend and nodes share it.
         self._hr_high: float = 120.0
         self._hr_low: float = 50.0
         self._spo2_low: float = 94.0
         self._temp_high: float = 38.0
+        self._risk_config: RiskConfig = DEFAULT_CONFIG
+        # Per-patient recent (value, captured_at_ms) series for trend rules.
+        self._patient_history: dict[str, list[tuple[float, int, dict]]] = {}
+        # Last level broadcast per patient, so "risk" messages fire on change.
+        self._last_risk_level: dict[str, str] = {}
         self._temp_low: float = 36.0
         # Track active alert conditions to avoid duplicate alerts
         self._active_conditions: set[str] = set()
@@ -136,6 +145,7 @@ class SimulatorState:
         if self.persistence is None and os.environ.get("REMPM_DISABLE_DB") != "1":
             data_dir = os.environ.get("APP_DATA_DIR", ".data")
             self.persistence = Persistence(Path(data_dir) / "app.db")
+            self._owns_persistence = True
 
         # A fresh mesh restarts every counter at zero, so the harvest cursors
         # and stores must reset too.
@@ -151,6 +161,10 @@ class SimulatorState:
         self.alerts.clear()
         self.network_events.clear()
 
+        # Phase 7: mesh authentication is env-gated so the default lab mode is
+        # unchanged. MESH_AUTH=1 provisions credentials and makes the gateway
+        # verify every frame before parsing it.
+        authenticate = os.environ.get("MESH_AUTH") == "1"
         self.mesh = build_standard_mesh(
             seed=20260928,
             patient_count=5,
@@ -162,6 +176,7 @@ class SimulatorState:
             use_relay=True,
             relay_buffer_capacity=30,
             two_relay=True,
+            authenticate=authenticate,
         )
         self.nodes_total = len(self.mesh.nodes)
         self._init_devices()
@@ -170,9 +185,13 @@ class SimulatorState:
     def stop(self) -> None:
         if self._task:
             self._task.cancel()
+        # Always close and detach: a stopped state must be safe to start() again
+        # without reusing a closed handle. Tests that inject a store do so
+        # *after* stop(), before create_app().
         if self.persistence is not None:
             self.persistence.close()
             self.persistence = None
+        self._owns_persistence = False
 
     def subscribe_ws(self) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue(maxsize=100)
@@ -394,29 +413,60 @@ class SimulatorState:
         """Generate alerts when measurements cross thresholds."""
         conditions: list[tuple[str, str, str]] = []
 
-        if m.heart_rate_bpm > self._hr_high:
+        # --- Shared-engine risk assessment (Phase 6) ---
+        # The backend is authoritative for risk: it re-scores every accepted
+        # measurement with the same rules the nodes use, so node and backend can
+        # only disagree by a bug, not by tuning drift.
+        history = self._patient_history.setdefault(m.patient_id, [])
+        history.append((m.spo2_percent, m.captured_at_ms, {
+            "heart_rate_bpm": m.heart_rate_bpm,
+            "spo2_percent": m.spo2_percent,
+            "temperature_c": m.temperature_c,
+        }))
+        # Bound the history: the trend window needs ~60 s of data.
+        if len(history) > 60:
+            del history[: len(history) - 60]
+
+        spo2_values = [entry[0] for entry in history]
+        spo2_times = [entry[1] for entry in history]
+        assessment = assess(
+            heart_rate_bpm=m.heart_rate_bpm,
+            spo2_percent=m.spo2_percent,
+            temperature_c=m.temperature_c,
+            signal_quality=m.signal_quality,
+            trend_values=spo2_values,
+            trend_timestamps_ms=spo2_times,
+            trend_metric="spo2_percent",
+            config=self._risk_config,
+            assessed_at_ms=now_ms,
+        )
+
+        # Level change: persist a snapshot and broadcast (the dashboard's
+        # authoritative risk event, with evidence).
+        previous_level = self._last_risk_level.get(m.patient_id)
+        if assessment.level != previous_level:
+            self._last_risk_level[m.patient_id] = assessment.level
+            snapshot = _risk_snapshot_to_dict(m, assessment)
+            if self.persistence is not None:
+                self.persistence.write_risk_snapshot(snapshot)
+            await self._broadcast({"type": "risk", "payload": snapshot})
+
+        # --- Alerts derive from the assessment's evidence ---
+        # One alert per fired rule, severity from the rule's weight within the
+        # assessment: critical-level rules raise critical alerts, others warn.
+        if assessment.level == "unknown":
+            # Quality-gated: no evidence to alert on. Never guess.
+            return
+        for evidence in assessment.evidence:
+            severity = (
+                "critical"
+                if assessment.level == "critical" and evidence.points >= 25
+                else "warning"
+            )
             conditions.append((
-                f"{m.device_id}:hr_high",
-                "critical" if m.heart_rate_bpm > 150 else "warning",
-                f"Heart rate elevated: {m.heart_rate_bpm:.0f} bpm (threshold {self._hr_high:.0f})",
-            ))
-        if m.heart_rate_bpm < self._hr_low:
-            conditions.append((
-                f"{m.device_id}:hr_low",
-                "warning",
-                f"Heart rate low: {m.heart_rate_bpm:.0f} bpm (threshold {self._hr_low:.0f})",
-            ))
-        if m.spo2_percent < self._spo2_low:
-            conditions.append((
-                f"{m.device_id}:spo2_low",
-                "critical" if m.spo2_percent < 90 else "warning",
-                f"SpO₂ low: {m.spo2_percent:.1f}% (threshold {self._spo2_low:.0f}%)",
-            ))
-        if m.temperature_c > self._temp_high:
-            conditions.append((
-                f"{m.device_id}:temp_high",
-                "warning",
-                f"Temperature elevated: {m.temperature_c:.1f}°C (threshold {self._temp_high:.1f}°C)",
+                f"{m.device_id}:{evidence.rule}",
+                severity,
+                f"{evidence.detail}" + (f" [score {assessment.score}]" if severity == "critical" else ""),
             ))
 
         for condition_key, severity, message in conditions:
@@ -439,22 +489,13 @@ class SimulatorState:
                 "payload": _alert_to_dict(alert),
             })
 
-        # Clear conditions that are no longer active
+        # Clear conditions that are no longer active: a rule that no longer
+        # appears in the evidence has recovered.
+        active_rules = {e.rule for e in assessment.evidence}
         for key in list(self._active_conditions):
-            dev_id = key.split(":")[0]
-            if dev_id == m.device_id:
-                cond = key.split(":")[1]
-                cleared = False
-                if cond == "hr_high" and m.heart_rate_bpm <= self._hr_high:
-                    cleared = True
-                elif cond == "hr_low" and m.heart_rate_bpm >= self._hr_low:
-                    cleared = True
-                elif cond == "spo2_low" and m.spo2_percent >= self._spo2_low:
-                    cleared = True
-                elif cond == "temp_high" and m.temperature_c <= self._temp_high:
-                    cleared = True
-                if cleared:
-                    self._active_conditions.discard(key)
+            dev_id, _, cond = key.partition(":")
+            if dev_id == m.device_id and cond not in active_rules:
+                self._active_conditions.discard(key)
 
 
 # ---------------------------------------------------------------------------
@@ -507,6 +548,33 @@ def _event_to_dict(e: NetworkEvent) -> dict[str, Any]:
         "device_id": e.device_id,
         "at_ms": e.at_ms,
         "detail": e.detail,
+    }
+
+
+def _risk_snapshot_to_dict(m: "MeasurementRecord", assessment) -> dict[str, Any]:
+    """A risk snapshot as the API and WebSocket serve it: full evidence."""
+    return {
+        "patient_id": m.patient_id,
+        "device_id": m.device_id,
+        "sequence_number": m.sequence_number,
+        "level": assessment.level,
+        "score": assessment.score,
+        "signal_quality": round(assessment.signal_quality, 3),
+        "evidence": [
+            {
+                "rule": e.rule,
+                "metric": e.metric,
+                "value": e.value,
+                "bound": e.bound,
+                "direction": e.direction,
+                "points": e.points,
+                "detail": e.detail,
+            }
+            for e in assessment.evidence
+        ],
+        "explanation": assessment.explain,
+        "config_fingerprint": assessment.config_fingerprint,
+        "captured_at_ms": assessment.assessed_at_ms,
     }
 
 

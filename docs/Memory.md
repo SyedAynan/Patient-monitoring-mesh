@@ -1,8 +1,8 @@
 # Project Memory
 
 **Last updated:** 2026-10-04
-**Current phase:** Phase 5 — Backend persistence and real-time dashboard (complete)
-**Next phase:** Phase 6 — Local risk scoring and edge intelligence
+**Current phase:** Phase 7 — Security, authentication, and authorization (complete)
+**Next phase:** Phase 8 — Evaluation, demo mode, and final documentation
 
 ## Completed
 
@@ -92,6 +92,45 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
   no MQTT broker; frontend risk score is a client-side heuristic and is *not*
   the authoritative risk state (that is Phase 6, server-side).
 
+### Phase 6 (complete as of 2026-10-04)
+
+- `shared/risk/` — rule-based engine: `RiskConfig` (threshold + trend rules,
+  quality gate, score bands), `assess()` returning level, score, and per-rule
+  evidence (value, bound, direction, points, detail) plus a config fingerprint.
+- Shared by design: nodes import the same module the backend uses. The node
+  scores from its filter window (with SpO₂ trend); a critical level escalates
+  packet priority to `critical`.
+- Backend `_check_alerts` re-scores each accepted measurement (trend from a
+  bounded ~60 s per-patient history), alerts derive from evidence, level changes
+  persist to `risk_snapshots` (migration 5: evidence, explanation, config
+  fingerprint) and broadcast as `risk` messages.
+- Endpoints: `GET /api/v1/patients/{id}/risk`, `GET/PUT /api/v1/risk/config`
+  (PUT validates and syncs node configs — no drift by construction).
+- Frontend: `risk` realtime handler + packet risk in `deviceToPatient`; client
+  heuristic is fallback-only now.
+- Tests: 25 engine + 6 endpoint/snapshot; suite 181 total, TS strict passes.
+- ECG/ML deliberately not attempted (PRD decision); nothing to label
+  experimental. Thresholds are demo numbers, not clinical evidence.
+
+### Phase 7 (complete as of 2026-10-04)
+
+- `shared/security/`: HMAC-SHA256 frame MAC (immutable fields only),
+  constant-time verify, `DeviceCredentialStore` (provision/revoke/rotate,
+  fail-closed), stable reason codes. Memory-only secrets.
+- Envelope `auth` field (optional, 64-hex); relays forward MACs untouched.
+- Nodes sign when keyed; gateway verifies before payload parsing when a store
+  is configured; rejected frames get no ack; stats per rejection reason.
+- Replay window signal counted, never suppressing backfill.
+- Backend: lab mode default; `BACKEND_AUTH_MODE=token` guards mutations with
+  `X-Operator-Token` (constant-time compare; unconfigured = fail closed);
+  `/health` reports mode without the token; audit trail in `audit_events`
+  (migration 6) for every allow/refuse decision.
+- `MESH_AUTH=1` env gate builds the authenticated backend mesh; frontend
+  attaches the operator token from env.
+- Tests: 33 security + 14 backend-guard; suite 228 total; tsc strict passes.
+- Limits: lab baseline only — seed-derived demo key, unsigned acks (carry no
+  telemetry), no TLS deployment story, provisioning tooling future work.
+
 - Nodes carry `alternate_hop` and reroute after `reroute_after_failures`
   consecutive link failures; route changes are counted and timestamped (M-05 event).
 - Relay store-and-forward: bounded `buffer_capacity` (0 = disabled, Phase 3
@@ -150,13 +189,16 @@ Verified behavior (79 tests total: 50 pipeline + 29 pre-existing, no regression)
 
 ## Next task
 
-Phase 5 — backend persistence and real-time dashboard: FastAPI service, SQLite
-with migrations, measurement/alert persistence with the `(device_id,
-sequence_number)` uniqueness constraint, a realtime stream (WebSocket/SSE), and
-the React + TypeScript dashboard shell. The ingestion path should reuse
-`shared/protocol` as the validation authority and the simulator mesh as its data
-source. Do not start risk scoring or security work before Phase 5 is complete
-and tested.
+Phase 8 — evaluation, demo mode, and final documentation: an experiment runner
+that executes the S-01…S-08 scenarios from `docs/Evaluation.md` against the
+simulator, records `.data/experiments/<session-id>/` evidence
+(config/raw/summary/notes), computes M-01…M-12 from recorded runs only, a
+repeatable live-demo script, and the final report with honest limitations. No
+metric may be reported without its evidence file. Do not claim clinical
+validation anywhere in the report.
+
+Physical ESP32/ESP-NOW work stays deferred until hardware is available. Nothing in
+the physical-transport column gets claimed as validated before then.
 
 Physical ESP32/ESP-NOW work stays deferred until hardware is available. Nothing in
 the physical-transport column gets claimed as validated before then.

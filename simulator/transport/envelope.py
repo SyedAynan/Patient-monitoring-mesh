@@ -39,8 +39,12 @@ INVALID_HOP_COUNT = "INVALID_HOP_COUNT"
 HOP_LIMIT_EXCEEDED = "HOP_LIMIT_EXCEEDED"
 INVALID_KIND = "INVALID_KIND"
 INVALID_ACKS = "INVALID_ACKS"
+INVALID_AUTH = "INVALID_AUTH"
 
-HEADER_FIELDS = ("source", "destination", "message_id", "hop_count", "kind", "acks", "last_hop")
+HEADER_FIELDS = (
+    "source", "destination", "message_id", "hop_count", "kind", "acks",
+    "last_hop", "auth",
+)
 REQUIRED_HEADER_FIELDS = ("source", "destination", "message_id", "hop_count", "kind")
 
 # Frame kinds. `data` carries a payload; `ack` confirms receipt of a `data`
@@ -79,6 +83,10 @@ class Frame:
     # knows the peer it received from, so the receiver can reply along the path
     # the frame actually took rather than guessing. `forwarded_by` sets it.
     last_hop: str | None = None
+    # Phase 7: hex HMAC-SHA256 over (source, destination, message_id, payload)
+    # — the immutable fields. Set by the sender, preserved by relays, verified
+    # by the gateway. None on frames from unauthenticated senders.
+    auth: str | None = None
 
     def __post_init__(self) -> None:
         _check_endpoint(self.source, "source")
@@ -101,6 +109,16 @@ class Frame:
                 raise FrameError("an ack frame must not carry a payload", INVALID_ACKS)
         elif self.acks is not None:
             raise FrameError("only an ack frame may carry the acks field", INVALID_ACKS)
+
+        # Phase 7: the auth MAC, when present, is 64 hex characters. Format
+        # only — semantic verification is the credential store's job.
+        if self.auth is not None:
+            if not isinstance(self.auth, str) or len(self.auth) != 64:
+                raise FrameError("auth must be a 64-character hex MAC", INVALID_AUTH)
+            try:
+                bytes.fromhex(self.auth)
+            except ValueError as exc:
+                raise FrameError("auth must be a 64-character hex MAC", INVALID_AUTH) from exc
 
     @classmethod
     def acknowledgement(cls, *, source: str, destination: str, acks: str, hop: int = 0) -> "Frame":
@@ -137,6 +155,7 @@ class Frame:
             kind=self.kind,
             acks=self.acks,
             last_hop=relay_id,
+            auth=self.auth,
         )
 
     def to_bytes(self) -> bytes:
@@ -151,6 +170,8 @@ class Frame:
             header_fields["acks"] = self.acks
         if self.last_hop is not None:
             header_fields["last_hop"] = self.last_hop
+        if self.auth is not None:
+            header_fields["auth"] = self.auth
         header = json.dumps(header_fields, separators=(",", ":"), sort_keys=True).encode("utf-8")
         if len(header) > MAX_HEADER_LENGTH:
             raise FrameError("header exceeds the maximum size", OVERSIZED_HEADER)
@@ -208,6 +229,7 @@ class Frame:
             kind=header["kind"],
             acks=header.get("acks"),
             last_hop=last_hop,
+            auth=header.get("auth"),
         )
 
 

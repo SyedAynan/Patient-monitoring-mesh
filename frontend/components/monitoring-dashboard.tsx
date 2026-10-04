@@ -14,6 +14,7 @@ import {
   fetchDevices, fetchMeasurements, fetchAlerts, fetchNetworkMetrics,
   acknowledgeAlert as apiAcknowledgeAlert,
   type Device, type Measurement, type Alert as ApiAlert, type NetworkMetrics, type NetworkEvent,
+  type RiskSnapshot,
 } from '@/lib/api'
 import { subscribe, onConnectionStatus, type RealtimeMessage } from '@/lib/realtime'
 import { monitorAudio } from '@/lib/audio'
@@ -59,10 +60,20 @@ const PATIENT_META: Record<string, { name: string; room: string; bed: string; ag
 function deviceToPatient(dev: Device, latestMeasurement?: Measurement): Patient {
   const meta = PATIENT_META[dev.patient_id] || { name: dev.patient_id, room: 'Room 100', bed: 'Bed 0', age: 60, gender: 'Unspecified', color: 'slate' }
   const isStale = dev.status === 'stale' || dev.status === 'offline'
+  // Backend-computed risk (Phase 6) is authoritative. When the packet carries a
+  // risk block, use its level directly; the fallback heuristic only applies to
+  // measurements with no risk block yet (pre-Phase-6 nodes or demo mode).
+  const packetRisk = latestMeasurement?.risk ?? null
   const needsAttention = latestMeasurement && (
     latestMeasurement.heart_rate_bpm > 120 || latestMeasurement.spo2_percent < 94
   )
-  const status: Status = isStale ? 'stale' : needsAttention ? 'attention' : 'online'
+  const status: Status = isStale
+    ? 'stale'
+    : packetRisk?.level === 'critical'
+      ? 'attention'
+      : packetRisk?.level === 'attention' || needsAttention
+        ? 'attention'
+        : 'online'
   const ageMs = Date.now() - (dev.last_seen_at_ms > 1e12 ? dev.last_seen_at_ms : dev.last_seen_at_ms * 1000)
 
   const hr = latestMeasurement ? Math.round(latestMeasurement.heart_rate_bpm) : 72
@@ -70,10 +81,13 @@ function deviceToPatient(dev: Device, latestMeasurement?: Measurement): Patient 
   const temp = latestMeasurement ? Number(latestMeasurement.temperature_c.toFixed(1)) : 36.8
   const rr = latestMeasurement ? Math.round(14 + (hr % 6)) : 16
 
+  // Authoritative when present; heuristic fallback otherwise (clearly bounded
+  // and only used where the backend has not yet scored this patient).
   let riskScore = 12
   if (hr > 110 || hr < 55) riskScore += 18
   if (spo2 < 95) riskScore += 22
   if (temp > 37.8 || temp < 36.0) riskScore += 12
+  const authoritativeScore = packetRisk?.score
 
   return {
     id: dev.patient_id,
@@ -91,7 +105,7 @@ function deviceToPatient(dev: Device, latestMeasurement?: Measurement): Patient 
     sequence: latestMeasurement?.sequence_number ?? 0,
     color: meta.color,
     deviceId: dev.device_id,
-    riskScore: Math.min(100, riskScore),
+    riskScore: authoritativeScore ?? Math.min(100, riskScore),
   }
 }
 
@@ -525,10 +539,21 @@ export default function MonitoringDashboard() {
         })
         setPatients(prev => prev.map(p => {
           if (p.id !== m.patient_id) return p
+          // Backend-computed risk (Phase 6): the packet's risk block is the
+          // authoritative state; the frontend renders it, never recomputes it.
+          const riskLevel = m.risk?.level ?? null
+          const riskScore = m.risk?.score ?? 0
           const needsAttention = m.heart_rate_bpm > 120 || m.spo2_percent < 94
-          if (needsAttention) {
-            monitorAudio.playAlertAlarm('warning')
+          if (riskLevel === 'critical' || (needsAttention && riskLevel === 'attention')) {
+            monitorAudio.playAlertAlarm(riskLevel === 'critical' ? 'critical' : 'warning')
           }
+          const nextStatus: Status = riskLevel === 'critical'
+            ? 'attention'
+            : riskLevel === 'attention'
+              ? 'attention'
+              : needsAttention
+                ? 'attention'
+                : 'online'
           return {
             ...p,
             hr: Math.round(m.heart_rate_bpm),
@@ -538,7 +563,21 @@ export default function MonitoringDashboard() {
             signal: m.signal_quality,
             sequence: m.sequence_number,
             lastSeen: 0,
-            status: needsAttention ? 'attention' : 'online',
+            riskScore,
+            status: nextStatus,
+          }
+        }))
+      }
+      if (msg.type === 'risk') {
+        // Authoritative risk-level change with evidence: update the patient's
+        // risk state; scoring comes from the backend only.
+        const r = msg.payload as RiskSnapshot
+        setPatients(prev => prev.map(p => {
+          if (p.id !== r.patient_id) return p
+          return {
+            ...p,
+            riskScore: r.score,
+            status: r.level === 'critical' || r.level === 'attention' ? 'attention' : p.status,
           }
         }))
       }

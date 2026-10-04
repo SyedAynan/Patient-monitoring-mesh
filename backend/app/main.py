@@ -12,7 +12,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .simulator_state import state
-from .routes import devices, patients, alerts, network, realtime
+from .routes import devices, patients, alerts, network, realtime, risk
+from .security import auth_mode_for_health
 
 
 @asynccontextmanager
@@ -44,9 +45,14 @@ def create_app() -> FastAPI:
     app.include_router(alerts.router, prefix="/api/v1")
     app.include_router(network.router, prefix="/api/v1")
     app.include_router(realtime.router, prefix="/api/v1")
+    app.include_router(risk.router, prefix="/api/v1")
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "tick_count": state._tick_count}
+        return {
+            "status": "ok",
+            "tick_count": state._tick_count,
+            "auth_mode": auth_mode_for_health(),
+        }
 
     return app

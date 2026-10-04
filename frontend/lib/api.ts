@@ -77,7 +77,14 @@ interface Envelope<T> {
 // ---------------------------------------------------------------------------
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, init);
+  // Phase 7: attach the operator token when the backend runs in token mode.
+  // Env-only, same rule as the backend: no default, no fallback secret.
+  const token = process.env.NEXT_PUBLIC_OPERATOR_TOKEN;
+  const headers = new Headers(init?.headers);
+  if (token && !headers.has('X-Operator-Token')) {
+    headers.set('X-Operator-Token', token);
+  }
+  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${res.statusText}`);
   }
@@ -121,4 +128,84 @@ export async function acknowledgeAlert(alertId: string): Promise<Alert> {
 
 export async function fetchNetworkMetrics(): Promise<NetworkMetrics> {
   return apiFetch('/api/v1/network/metrics');
+}
+
+// ---------------------------------------------------------------------------
+// Risk (Phase 6) — the backend is authoritative; these are render-only types.
+// ---------------------------------------------------------------------------
+
+export interface RiskEvidenceEntry {
+  rule: string;
+  metric: string;
+  value: number;
+  bound: number;
+  direction: string;
+  points: number;
+  detail: string;
+}
+
+export interface RiskSnapshot {
+  patient_id: string;
+  device_id?: string;
+  sequence_number?: number | null;
+  level: RiskLevel | 'unknown';
+  score: number;
+  signal_quality: number;
+  evidence: RiskEvidenceEntry[];
+  explanation: string;
+  config_fingerprint: string;
+  captured_at_ms: number;
+}
+
+export interface PatientRisk {
+  patient_id: string;
+  level: RiskLevel | 'unknown' | null;
+  latest_packet_risk: { level: RiskLevel; score: number } | null;
+  history: RiskSnapshot[];
+}
+
+export interface RiskRuleInfo {
+  name: string;
+  metric: string;
+  bound: number;
+  direction: string;
+  points: number;
+}
+
+export interface TrendRuleInfo {
+  name: string;
+  metric: string;
+  per_minute: number;
+  window_seconds: number;
+  points: number;
+}
+
+export interface RiskConfigInfo {
+  thresholds: { hr_high: number; hr_low: number; spo2_low: number; temp_high: number };
+  rules: RiskRuleInfo[];
+  trend_rules: TrendRuleInfo[];
+  minimum_quality: number;
+  attention_score: number;
+  critical_score: number;
+}
+
+export async function fetchPatientRisk(patientId: string): Promise<PatientRisk> {
+  return apiFetch(`/api/v1/patients/${patientId}/risk`);
+}
+
+export async function fetchRiskConfig(): Promise<RiskConfigInfo> {
+  return apiFetch('/api/v1/risk/config');
+}
+
+export async function updateRiskConfig(thresholds: {
+  hr_high: number;
+  hr_low: number;
+  spo2_low: number;
+  temp_high: number;
+}): Promise<RiskConfigInfo> {
+  return apiFetch('/api/v1/risk/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(thresholds),
+  });
 }

@@ -23,6 +23,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from shared.protocol import PacketValidationError, decode_packet, make_packet
+from shared.risk import DEFAULT_CONFIG as DEFAULT_RISK_CONFIG
+from shared.risk import RiskConfig, assess
+from shared.security import compute_frame_mac
 
 from ..sensing.processing import (
     FilterOutcome,
@@ -59,6 +62,12 @@ class NodeConfig:
     alternate_hop: str | None = None
     # Consecutive transmit failures on the current hop before switching.
     reroute_after_failures: int = 2
+    # Phase 6: the rule set this node scores risk with. The default is the same
+    # DEFAULT_CONFIG the backend uses, so node and backend cannot drift.
+    risk_config: RiskConfig = DEFAULT_RISK_CONFIG
+    # Phase 7: when set, every frame this node emits carries an HMAC-SHA256
+    # over its immutable fields. None means unauthenticated (lab mode).
+    mac_key: bytes | None = None
 
     def __post_init__(self) -> None:
         if self.samples_per_packet < 1:
@@ -154,7 +163,8 @@ class SensorNode:
             # Never let a physically impossible value reach the packet builder.
             self.stats.implausible_readings += 1
             return
-        self._filter.observe(reading)
+        # The timestamp travels with the sample so trend rules have real time.
+        self._filter.observe(reading, captured_at_ms=captured_at_ms)
         self._samples_since_packet += 1
         self._last_captured_at_ms = captured_at_ms
 
@@ -166,6 +176,27 @@ class SensorNode:
             return None
         vitals = outcome.vitals
         assert vitals is not None
+
+        # Local risk scoring: runs on the node, from the same rules the backend
+        # uses, so a patient's risk state keeps being computed when the gateway
+        # is unreachable. Quality-gated by the same engine the backend uses.
+        assessment = assess(
+            heart_rate_bpm=vitals.heart_rate_bpm,
+            spo2_percent=vitals.spo2_percent,
+            temperature_c=vitals.temperature_c,
+            signal_quality=vitals.signal_quality,
+            trend_values=self._filter.spo2_series(),
+            trend_timestamps_ms=self._filter.timestamps_series(),
+            trend_metric="spo2_percent",
+            config=self.config.risk_config,
+            assessed_at_ms=self._last_captured_at_ms,
+        )
+
+        priority = self.config.priority
+        if assessment.level == "critical":
+            # Critical patients never wait behind routine traffic (FR-04).
+            priority = "critical"
+
         packet = make_packet(
             device_id=self.config.device_id,
             patient_id=self.config.patient_id,
@@ -174,8 +205,10 @@ class SensorNode:
             heart_rate_bpm=vitals.heart_rate_bpm,
             spo2_percent=vitals.spo2_percent,
             temperature_c=vitals.temperature_c,
-            priority=self.config.priority,
+            priority=priority,
             signal_quality=vitals.signal_quality,
+            risk_level=assessment.level if assessment.is_packet_risk() else "normal",
+            risk_score=assessment.score if assessment.is_packet_risk() else 0,
         )
         return validate_against_contract(packet)
 
@@ -185,11 +218,23 @@ class SensorNode:
         except PacketValidationError:
             self.stats.packets_failed_contract += 1
             raise
+        message_id = f"{self.config.device_id}:{packet['sequence_number']}"
+        auth: str | None = None
+        if self.config.mac_key is not None:
+            # Sign the immutable fields exactly as the gateway will verify them.
+            auth = compute_frame_mac(
+                source=self.config.device_id,
+                destination=self.config.gateway_id,
+                message_id=message_id,
+                payload=payload,
+                key=self.config.mac_key,
+            )
         frame = Frame(
             source=self.config.device_id,
             destination=self.config.gateway_id,
-            message_id=f"{self.config.device_id}:{packet['sequence_number']}",
+            message_id=message_id,
             payload=payload,
+            auth=auth,
         )
         admitted = self.queue.enqueue(frame, priority=self.config.priority)
         if admitted:
