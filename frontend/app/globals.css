@@ -12,66 +12,66 @@
 :root {
   color-scheme: dark;
 
-  /* Surfaces */
-  --background: #060a14;
-  --foreground: #e2e8f0;
-  --card: #0b1120;
-  --card-foreground: #e2e8f0;
-  --popover: #0b1120;
-  --popover-foreground: #e2e8f0;
-  --surface-raised: #0f1729;
-  --surface-overlay: #131d32;
+  /* Surfaces — true black base */
+  --background: #050505;
+  --foreground: #e8e8e8;
+  --card: #0a0a0a;
+  --card-foreground: #e8e8e8;
+  --popover: #0d0d0d;
+  --popover-foreground: #e8e8e8;
+  --surface-raised: #101010;
+  --surface-overlay: #141414;
 
-  /* Primary — Cyan/Teal */
+  /* Primary — Cyan (the mesh's signal color) */
   --primary: #22d3ee;
-  --primary-foreground: #060a14;
+  --primary-foreground: #050505;
   --primary-muted: rgba(34, 211, 238, 0.12);
 
   /* Secondary */
-  --secondary: #131d32;
-  --secondary-foreground: #cbd5e1;
+  --secondary: #141414;
+  --secondary-foreground: #cfcfcf;
 
   /* Muted */
-  --muted: #0f1729;
-  --muted-foreground: #64748b;
+  --muted: #101010;
+  --muted-foreground: #737373;
 
   /* Accent */
-  --accent: #131d32;
-  --accent-foreground: #e2e8f0;
+  --accent: #141414;
+  --accent-foreground: #e8e8e8;
 
   /* Semantic Status Colors */
   --success: #10b981;
   --success-muted: rgba(16, 185, 129, 0.12);
   --warning: #f59e0b;
   --warning-muted: rgba(245, 158, 11, 0.12);
-  --critical: #ef4444;
-  --critical-muted: rgba(239, 68, 68, 0.12);
-  --info: #3b82f6;
-  --info-muted: rgba(59, 130, 246, 0.12);
-  --analytics: #8b5cf6;
-  --analytics-muted: rgba(139, 92, 246, 0.12);
+  --critical: #f43f5e;
+  --critical-muted: rgba(244, 63, 94, 0.12);
+  --info: #60a5fa;
+  --info-muted: rgba(96, 165, 250, 0.12);
+  --analytics: #a78bfa;
+  --analytics-muted: rgba(167, 139, 250, 0.12);
 
   /* Destructive */
-  --destructive: #ef4444;
+  --destructive: #f43f5e;
 
   /* Borders */
-  --border: rgba(148, 163, 184, 0.08);
-  --border-subtle: rgba(148, 163, 184, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
   --border-active: rgba(34, 211, 238, 0.25);
-  --input: rgba(148, 163, 184, 0.10);
+  --input: rgba(255, 255, 255, 0.10);
   --ring: #22d3ee;
 
   /* Radius */
   --radius: 0.625rem;
 
   /* Sidebar */
-  --sidebar: #080e1c;
-  --sidebar-foreground: #e2e8f0;
+  --sidebar: #070707;
+  --sidebar-foreground: #e8e8e8;
   --sidebar-primary: #22d3ee;
-  --sidebar-primary-foreground: #060a14;
-  --sidebar-accent: #0f1729;
-  --sidebar-accent-foreground: #e2e8f0;
-  --sidebar-border: rgba(148, 163, 184, 0.06);
+  --sidebar-primary-foreground: #050505;
+  --sidebar-accent: #101010;
+  --sidebar-accent-foreground: #e8e8e8;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
   --sidebar-ring: #22d3ee;
 }
 
