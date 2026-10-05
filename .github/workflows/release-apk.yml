@@ -80,16 +80,18 @@ jobs:
       - name: Build debug APK
         working-directory: frontend/android
         run: |
-          # setup-android puts the SDK in $ANDROID_SDK_ROOT (and/or ANDROID_HOME).
           SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          echo "Resolved SDK dir: $SDK"
-          ls "$SDK" || true
-          # Write local.properties so Gradle resolves the SDK even if env is unset.
           echo "sdk.dir=$SDK" > local.properties
           chmod +x ./gradlew
-          ./gradlew assembleDebug --console=plain --stacktrace
+          # Capture the log so a failure prints the tail into the step output
+          # (readable in the GitHub UI run summary without downloading logs).
+          ./gradlew assembleDebug --console=plain --stacktrace 2>&1 | tee gradle.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            echo "=========== GRADLE FAILURE — last 60 lines ==========="
+            tail -60 gradle.log
+          fi
+          exit $STATUS
 
       - name: Rename APK
         working-directory: frontend
