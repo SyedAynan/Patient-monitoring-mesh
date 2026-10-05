@@ -16,11 +16,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const frontendDir = join(here, '..');
 
 const env = { ...process.env, CAPACITOR_BUILD: 'true' };
-const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const res = spawnSync(cmd, ['next', 'build'], {
+// Invoke Next's JS entrypoint directly with the current Node executable.
+// Spawning `npx`/`npx.cmd` fails on Windows Node >= 20 unless shell:true
+// (EINVAL from .cmd spawn restriction), which made this script fail silently.
+const nextBin = join(frontendDir, 'node_modules', 'next', 'dist', 'bin', 'next');
+const res = spawnSync(process.execPath, [nextBin, 'build'], {
   cwd: frontendDir,
   env,
   stdio: 'inherit',
 });
 
+if (res.error) {
+  console.error(`build-mobile: failed to launch next: ${res.error.message}`);
+  process.exit(1);
+}
 process.exit(res.status ?? 1);

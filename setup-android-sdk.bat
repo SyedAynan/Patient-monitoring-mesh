@@ -22,7 +22,7 @@ echo.
 
 where java >nul 2>nul
 if errorlevel 1 (
-    echo [ERROR] Java not found on PATH. Install JDK 17+ (or Android Studio).
+    echo [ERROR] Java not found on PATH. Install JDK 21+ (or Android Studio).
     pause
     exit /b 1
 )

@@ -23,7 +23,7 @@ echo "=== CareNet Mesh — Android SDK setup ==="
 echo "Target: $SDK_DIR"
 echo ""
 
-command -v java >/dev/null 2>&1 || { echo "[ERROR] Java not found. Install JDK 17+ (or Android Studio)."; exit 1; }
+command -v java >/dev/null 2>&1 || { echo "[ERROR] Java not found. Install JDK 21+ (or Android Studio)."; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "[ERROR] curl not found."; exit 1; }
 command -v unzip >/dev/null 2>&1 || { echo "[ERROR] unzip not found."; exit 1; }
 
