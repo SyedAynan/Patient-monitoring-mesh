@@ -35,11 +35,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Set up JDK 17
+      # JDK 21 is required: Capacitor 8's generated Gradle files set
+      # source/targetCompatibility to Java 21 — JDK 17 cannot target it.
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -53,15 +55,16 @@ jobs:
         run: npm run build:mobile
 
       - name: Copy web bundle into Android project
-        # Replicates `cap copy` (static bundle + capacitor.config.json) without
-        # invoking the Capacitor CLI, which can fail on a cold CI clone. Pure
-        # Node/fs copy — deterministic and dependency-free.
+        # Overlay-replicates `cap copy` (static bundle + capacitor.config.json)
+        # without invoking the Capacitor CLI, which can fail on a cold CI clone.
+        # Pure Node/fs copy — deterministic and dependency-free. The bundle is
+        # also committed, so this overlays fresh build output on top of it
+        # (committed files like cordova.js stay in place).
         run: |
           node -e '
             const fs = require("fs"), path = require("path");
             const dst = path.join("android","app","src","main","assets");
             const pubDst = path.join(dst, "public");
-            fs.rmSync(pubDst, { recursive: true, force: true });
             fs.mkdirSync(pubDst, { recursive: true });
             fs.cpSync("out", pubDst, { recursive: true });
             const cfg = {

@@ -5,7 +5,7 @@
 #
 # Prerequisites (one-time):
 #   * Android Studio / Android SDK (installs the SDK + build-tools)
-#   * JDK 17+ on PATH (Android Studio bundles one)
+#   * JDK 21+ on PATH (Android Studio bundles one; Capacitor 8 targets Java 21)
 #   * frontend deps installed (run ./install.sh first)
 #
 # Output: frontend/android/app/build/outputs/apk/debug/app-debug.apk

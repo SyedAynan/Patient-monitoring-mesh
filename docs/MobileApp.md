@@ -48,7 +48,7 @@ the phone itself — so the app must be told the PC's LAN IP at runtime.
 **Prerequisites (one-time):**
 
 - Frontend deps installed — run `INSTALL.bat` / `./install.sh` once.
-- **JDK 17+** on PATH (or Android Studio, which bundles one).
+- **JDK 21+** on PATH (or Android Studio, which bundles one). Capacitor 8's Gradle config targets Java 21, so JDK 17 cannot build it.
 - An **Android SDK**. Two ways to get one:
   - *Already have Android Studio?* Nothing to do — the build uses its SDK via
     `ANDROID_HOME`.
