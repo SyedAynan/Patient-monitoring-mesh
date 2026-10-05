@@ -79,16 +79,17 @@ jobs:
 
       - name: Build debug APK
         working-directory: frontend/android
-        env:
-          # setup-android exposes the SDK via ANDROID_HOME; export both for
-          # Gradle + AGP and write local.properties as a belt-and-suspenders
-          # fallback so sdk.dir resolves regardless of which is honoured.
-          ANDROID_HOME: ${{ env.ANDROID_HOME || env.ANDROID_SDK_ROOT }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT || env.ANDROID_HOME }}
         run: |
-          echo "sdk.dir=${ANDROID_SDK_ROOT:-$ANDROID_HOME}" > local.properties
+          # setup-android puts the SDK in $ANDROID_SDK_ROOT (and/or ANDROID_HOME).
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "Resolved SDK dir: $SDK"
+          ls "$SDK" || true
+          # Write local.properties so Gradle resolves the SDK even if env is unset.
+          echo "sdk.dir=$SDK" > local.properties
           chmod +x ./gradlew
-          ./gradlew assembleDebug --console=plain
+          ./gradlew assembleDebug --console=plain --stacktrace
 
       - name: Rename APK
         working-directory: frontend
