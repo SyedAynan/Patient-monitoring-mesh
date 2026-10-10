@@ -1,10 +1,74 @@
 # Project Memory
 
-**Last updated:** 2026-10-04
-**Current phase:** Phase 8 — Evaluation, demo mode, and final documentation (complete)
-**Next phase:** all software phases complete; physical ESP32/ESP-NOW validation when hardware arrives
+**Last updated:** 2026-10-10
+**Current phase:** Post-Phase-8 maintenance — Android APK (Capacitor) shipped; no active software phase
+**Next phase:** Phase 9 (proposed) — see Phases.md: dep-scan/docs-refresh, or physical ESP32/ESP-NOW validation when hardware arrives
 
 ## Completed
+
+### Showcase README (2026-10-10, this session — verified)
+
+- Rewrote root `README.md` as a showcase page from live code (not a restore of
+  the old one): hero, APK/QR install, features, architecture diagram, repo
+  layout, quickstart + LAN mode, 10-min demo, API table, verify commands,
+  S-01…S-08 results with honest limits, security baseline, docs index.
+- Profile names match `simulator/topology.py` (`stable`, `stable_elevated`,
+  `poor_contact`, `deteriorating`, `intermittent_sensor`); routes match
+  `backend/app/routes/`; all linked assets/workflows/docs verified present.
+- Tests re-run green: **249/249 pass** via unittest (this session).
+- The other 10 deleted root files (`.gitignore`, `.env.example`, scripts,
+  `.editorconfig`) remain deleted in the working tree — restore blocked by a
+  safety guard, left for the user (`git checkout -- <files>`). This README
+  commit does not include those deletions.
+
+### Post-Phase-8 (through 2026-10-05, from git history — verified)
+
+- Native Android app: Capacitor 8 wrapping the Next.js dashboard as a debug APK
+  (one codebase for web + PWA + APK). `frontend/android/`, `capacitor.config.ts`,
+  `build-apk.bat|sh`, `setup-android-sdk.bat|sh`, `frontend/scripts/build-mobile.mjs`.
+- One-tap APK distribution: GitHub Actions release workflow
+  (`.github/workflows/release-apk.yml`) — on every version tag or manual trigger,
+  JDK 21, auto-detects local `.android-sdk/`, rolling `latest` pre-release asset
+  `carenet-mesh.apk` + QR in README. Verified in git history; not run in this session.
+- `Settings → Backend Server` runtime host picker so the phone can reach the PC
+  backend (LAN IP); `start.bat --lan` binds 0.0.0.0.
+- Launcher/install scripts, PWA manifest/icons, dashboard UI additions.
+- Details: `docs/MobileApp.md`; commit `ea8ef26` is the APK/CI state as of 2026-10-05.
+
+### Verified current state (2026-10-07)
+
+- **Tests: 249/249 pass** via `.venv/Scripts/python.exe -m unittest discover -s tests -p "test_*.py"` (11.5 s) — pytest not installed; CI uses unittest.
+- Docs are the six-file context system (PRD/Architecture/Rules/Phases/Design/Memory) plus Evaluation, Risks, DemoScript, FinalReport, MobileApp.
+- Working tree has **uncommitted deletions** of 11 root files (README.md, .gitignore, .env.example, start/install/build-apk/setup-android-sdk scripts, .editorconfig) and one modified file (`frontend/next-env.d.ts`). Untracked: `.android-sdk/` (gitignored), `.data/` (gitignored), `__pycache__/` (gitignored), `frontend/tsconfig.tsbuildinfo` (gitignored). Cause unknown — not made in this session. **Restoration proposed, not yet executed.**
+
+## Important decisions (additions)
+
+- `docs/` is the cross-session/cross-tool context system; project `CLAUDE.md` (root, new 2026-10-07) is the entry point that instructs agents to read the docs before coding. Docs on disk use lowercase names (Architecture.md etc.) — same files as ARCHITECTURE.md on case-insensitive Windows; do not create uppercase-named duplicates.
+- Git identity for future commits: Syed Ayan <188637542+SyedAynan@users.noreply.github.com> (set globally 2026-10-07; earlier commits show as "AI Assistant" — history not rewritten).
+
+## Known issues / TBD
+
+- Physical ESP32/ESP-NOW validation **deferred until hardware is available** (explicit decision 2026-09-29). No board flashed; no radio result may be claimed. R-21: ESP-NOW 250-byte limit vs frame size must be resolved before firmware work.
+- Rerouting is single-preference (primary then alternate); no route discovery. "Self-healing mesh" must not be claimed — what exists is a measured two-path failover on a simulated link.
+- M-08/M-09 (alert latency in a live browser session) remain not measured.
+- **Working tree cleanup (pending):** restore the 11 deleted root files from HEAD (`git checkout -- <files>`) or confirm the deletions are intentional. Decisions awaited from the user.
+- `Project_Completion_Report.md` (untracked, unreviewed) still needs review/fix or removal.
+
+## Next task
+
+User-requested `PROJECT_IDEAS.md` (2026-10-10, extended same day): 30 total
+IEEE-level final-year ideas (Part A #1–10 deep + Part B #11–30 high-level,
+each with a different tech stack); standalone file at repo root, unrelated to
+Phase 1–8 scope; original `README.md` still deleted in working tree
+(restoration pending item A above).
+
+Awaiting user decision on:
+
+1. **A. Restore root files** (README, .gitignore, scripts — 11 files) from HEAD, then commit. Recommended; the deletions look accidental (latest commit ea8ef26 built and fixed exactly those files).
+2. **B. Phase 9 dep-list sweep** (fast, low risk): pin/upgrade + backend `requirements.txt` audit + one green test run, as pre-hardware groundwork.
+3. **C. Physical ESP32 transport spike** (when hardware available): two boards, one relay hop, conformance fixtures on real hardware; resolve R-21 (250-byte frame limit) first.
+
+Until A–C are decided, no code changes. Every simulator number stays labeled simulated; no radio claims before hardware runs.
 
 - Existing git-backed documentation baseline was preserved after the workspace changed during setup.
 - Foundation docs are present: PRD, Architecture, Rules, Phases, Design.
