@@ -267,3 +267,17 @@ Contributions are **greatly appreciated**. Please see our [CONTRIBUTING.md](.git
 ## 📄 License
 
 Distributed under the MIT License. See [.github/LICENSE](.github/LICENSE) for more information.
+
+---
+
+## ⚖️ Copyright, Attribution & Academic Integrity
+
+**Copyright (c) 2026 Syed Ayan. All rights reserved.**
+
+> ### 🎓 Notice Regarding Academic Submissions & Plagiarism
+> This repository represents original research, implementation, and portfolio work created by **Syed Ayan** for healthcare IoT and edge mesh networks.
+>
+> - **Evaluation & Portfolio Use:** This codebase is publicly visible for prospective employers, technical recruiters, peer review, and individual educational study.
+> - **Prohibition of Plagiarized Academic Submission:** You may **not** submit this project, its architecture, sensor simulator, firmware protocol, or substantial portions of its code/documentation as your own academic assignment, course project, dissertation, or degree requirement at any school, college, or university. Doing so violates institutional academic integrity policies and honor codes.
+> - **Open-Source Terms:** Software distribution rights remain subject to the terms of the included [MIT License](.github/LICENSE), requiring mandatory preservation of original copyright notices and author attribution.
+> - **Third-Party Rights:** All third-party libraries, hardware specifications, and dependencies remain the property of their respective owners.
